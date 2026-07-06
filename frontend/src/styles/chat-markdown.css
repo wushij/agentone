@@ -1,0 +1,111 @@
+.chat-markdown {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ao-text-primary);
+  word-break: break-word;
+}
+
+.chat-markdown p {
+  margin: 0 0 0.75em;
+}
+
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  margin: 1em 0 0.5em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.chat-markdown h1 { font-size: 1.35em; }
+.chat-markdown h2 { font-size: 1.2em; }
+.chat-markdown h3 { font-size: 1.05em; }
+
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+
+.chat-markdown li {
+  margin: 0.25em 0;
+}
+
+.chat-markdown blockquote {
+  margin: 0.75em 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--theme-primary);
+  background: rgba(79, 70, 229, 0.05);
+  border-radius: 0 var(--ao-radius) var(--ao-radius) 0;
+  color: var(--ao-text-secondary);
+}
+
+.chat-markdown a {
+  color: var(--theme-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 13px;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid var(--ao-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.chat-markdown th {
+  background: rgba(79, 70, 229, 0.06);
+  font-weight: 700;
+}
+
+.chat-markdown pre {
+  margin: 0.75em 0;
+  padding: 14px 16px;
+  border-radius: var(--ao-radius-lg);
+  background: #1e293b;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-markdown code {
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.9em;
+}
+
+.chat-markdown :not(pre) > code {
+  padding: 2px 6px;
+  border-radius: var(--ao-radius-sm);
+  background: rgba(79, 70, 229, 0.08);
+  color: #4338ca;
+}
+
+.chat-markdown pre code {
+  background: transparent;
+  color: #e2e8f0;
+  padding: 0;
+}
+
+.chat-markdown img {
+  max-width: 100%;
+  border-radius: var(--ao-radius-lg);
+  margin: 0.5em 0;
+}
+
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid var(--ao-border);
+  margin: 1em 0;
+}

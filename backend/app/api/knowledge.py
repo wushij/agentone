@@ -1,0 +1,188 @@
+"""backend/app/api/knowledge.py"""
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy.orm import Session
+
+from app.common.response import success
+from app.core.deps import get_current_user
+from app.db.session import get_db
+from app.models.user import User
+from app.services.file_service import FileService
+from app.services.model_service import ModelService
+from app.services.rag_service import RagService
+
+router = APIRouter(prefix="/api/knowledge", tags=["知识库管理"])
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+_KNOWLEDGE_JSON = _DATA_DIR / "knowledge.json"
+
+
+def _load_kb() -> list[dict]:
+    if not _KNOWLEDGE_JSON.exists():
+        return []
+    try:
+        return json.loads(_KNOWLEDGE_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_kb(kb_list: list[dict]):
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _KNOWLEDGE_JSON.write_text(json.dumps(kb_list, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+async def index_kb_files_task(kb_id: str, file_ids: list[str], chunk_size: int, chunk_overlap: int, user_id: int, db: Session):
+    file_service = FileService(db)
+    model_service = ModelService(db)
+    default_model = model_service.get_default()
+    
+    api_key = default_model.api_key if default_model else None
+    base_url = default_model.base_url if default_model else None
+    model_name = default_model.model_name if default_model else "text-embedding-3-small"
+
+    for fid in file_ids:
+        f = file_service.get_file(user_id, fid)
+        if f:
+            await RagService.index_file_in_kb(
+                kb_id=kb_id,
+                file_id=fid,
+                file_name=f.filename,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                api_key=api_key,
+                base_url=base_url,
+                model=model_name
+            )
+
+
+@router.get("")
+def list_knowledge(user: User = Depends(get_current_user)):
+    return success(_load_kb())
+
+
+@router.post("")
+def create_knowledge(
+    data: dict,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="知识库名称不能为空")
+
+    kb_list = _load_kb()
+    kb_id = f"kb_{uuid.uuid4().hex[:8]}"
+    
+    file_ids = data.get("fileIds", [])
+    chunk_size = int(data.get("chunkSize", 500))
+    chunk_overlap = int(data.get("chunkOverlap", 50))
+    
+    new_kb = {
+        "id": kb_id,
+        "name": name,
+        "description": data.get("description", "").strip(),
+        "fileIds": file_ids,
+        "chunkSize": chunk_size,
+        "chunkOverlap": chunk_overlap,
+        "embeddingModel": data.get("embeddingModel", "text-embedding-3-small"),
+        "retrievalMode": data.get("retrievalMode", "hybrid"),
+        "topK": int(data.get("topK", 3)),
+        "scoreThreshold": float(data.get("scoreThreshold", 0.5)),
+        "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    kb_list.append(new_kb)
+    _save_kb(kb_list)
+
+    if file_ids:
+        background_tasks.add_task(
+            index_kb_files_task,
+            kb_id,
+            file_ids,
+            chunk_size,
+            chunk_overlap,
+            user.id,
+            db
+        )
+
+    return success(new_kb, message="创建成功，已提交后台进行智能文本分片与索引")
+
+
+@router.put("/{kb_id}")
+def update_knowledge(
+    kb_id: str,
+    data: dict,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    kb_list = _load_kb()
+    target = None
+    for kb in kb_list:
+        if kb["id"] == kb_id:
+            target = kb
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="知识库不存在")
+
+    old_file_ids = set(target.get("fileIds", []))
+    
+    name = data.get("name", "").strip()
+    if name:
+        target["name"] = name
+    target["description"] = data.get("description", "").strip()
+    
+    file_ids = data.get("fileIds", [])
+    target["fileIds"] = file_ids
+    
+    chunk_size = int(data.get("chunkSize", 500))
+    chunk_overlap = int(data.get("chunkOverlap", 50))
+    target["chunkSize"] = chunk_size
+    target["chunkOverlap"] = chunk_overlap
+    
+    target["embeddingModel"] = data.get("embeddingModel", "text-embedding-3-small")
+    target["retrievalMode"] = data.get("retrievalMode", "hybrid")
+    target["topK"] = int(data.get("topK", 3))
+    target["scoreThreshold"] = float(data.get("scoreThreshold", 0.5))
+
+    _save_kb(kb_list)
+
+    # Find changes and reindex
+    new_file_ids = set(file_ids)
+    added_files = list(new_file_ids - old_file_ids)
+    removed_files = list(old_file_ids - new_file_ids)
+
+    # Clean removed files chunks
+    for fid in removed_files:
+        RagService.remove_file_chunks(kb_id, fid)
+
+    # Index new files in background
+    if added_files:
+        background_tasks.add_task(
+            index_kb_files_task,
+            kb_id,
+            added_files,
+            chunk_size,
+            chunk_overlap,
+            user.id,
+            db
+        )
+
+    return success(target, message="更新成功，已提交新增文档的文本分片与索引")
+
+
+@router.delete("/{kb_id}")
+def delete_knowledge(kb_id: str, user: User = Depends(get_current_user)):
+    kb_list = _load_kb()
+    kb_list = [kb for kb in kb_list if kb["id"] != kb_id]
+    _save_kb(kb_list)
+    
+    # Remove all chunks associated with this knowledge base
+    RagService.clear_kb_chunks(kb_id)
+    return success(None, message="删除成功")

@@ -1,0 +1,113 @@
+.app-layout-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.app-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.app-layout__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-layout__content {
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
+  background: var(--theme-bg, var(--ao-bg-app));
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.app-layout__content--full {
+  padding: 0;
+  overflow: hidden;
+}
+
+.app-layout__offline-alert {
+  margin: 0;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+.app-header {
+  height: var(--ao-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--theme-sidebar-bg, #fff);
+  border-bottom: 1px solid var(--theme-border, var(--ao-border));
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-header__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--theme-text-base, var(--ao-text-primary));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-header__collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--theme-border, var(--ao-border));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--theme-text-secondary, var(--ao-text-secondary));
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.app-header__collapse:hover {
+  color: var(--theme-primary);
+  border-color: color-mix(in srgb, var(--theme-primary) 30%, transparent);
+  background: var(--theme-primary-muted);
+}
+
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.app-header .el-breadcrumb {
+  font-size: 14px;
+}
+
+.app-header .el-breadcrumb__inner.is-link {
+  font-weight: 500;
+  color: var(--theme-text-secondary, var(--ao-text-secondary));
+}
+
+.app-header .el-breadcrumb__item:last-child .el-breadcrumb__inner {
+  font-weight: 600;
+  color: var(--theme-text-base, var(--ao-text-primary));
+}

@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data & Databases
+*.db
+*.sqlite
+*.sqlite3
+backend/data/
+
+# Python Cache & Virtual Environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.toast
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node & Frontend Build Outputs
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Editor and IDE configurations
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local Environment Variables
+.env
+.env.*
+!.env.example
+
+# Custom Excludes
+sql/migrations/
+docs/

@@ -10,11 +10,15 @@ import request from '@/api/request'
 
 const files = ref<FileItem[]>([])
 const loading = ref(false)
+const uploading = ref(false)
+const pendingUploads = ref(0)
+const uploadStats = ref({ ok: 0, fail: 0 })
 
 async function loadFiles() {
   loading.value = true
   try {
-    files.value = await fetchFiles()
+    const res = await fetchFiles()
+    files.value = res.records
   } catch (error) {
     ElMessage.error('加载文件列表失败')
   } finally {
@@ -22,14 +26,34 @@ async function loadFiles() {
   }
 }
 
+async function finishBatchIfDone() {
+  if (pendingUploads.value > 0) return
+  uploading.value = false
+  const { ok, fail } = uploadStats.value
+  uploadStats.value = { ok: 0, fail: 0 }
+  if (ok > 0 && fail === 0) {
+    ElMessage.success(ok === 1 ? '上传成功' : `成功上传 ${ok} 个文件`)
+  } else if (ok > 0 && fail > 0) {
+    ElMessage.warning(`成功 ${ok} 个，失败 ${fail} 个`)
+  } else if (fail > 0) {
+    ElMessage.error(fail === 1 ? '上传失败' : `${fail} 个文件上传失败`)
+  }
+  await loadFiles()
+}
+
 async function handleUpload(options: { file: File }) {
+  if (pendingUploads.value === 0) {
+    uploading.value = true
+  }
+  pendingUploads.value++
   try {
     await uploadFile(options.file)
-    ElMessage.success('上传成功')
-    await loadFiles()
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : '上传失败'
-    ElMessage.error(msg)
+    uploadStats.value.ok++
+  } catch {
+    uploadStats.value.fail++
+  } finally {
+    pendingUploads.value--
+    void finishBatchIfDone()
   }
 }
 
@@ -64,13 +88,15 @@ onMounted(loadFiles)
     <el-card shadow="never" class="toolbar-card">
       <el-upload
         drag
+        multiple
         action="#"
         :http-request="handleUpload"
         :show-file-list="false"
+        :disabled="uploading"
         accept=".pdf,.docx,.doc,.txt,.md"
         class="upload-zone"
       >
-        <div class="upload-inner">
+        <div class="upload-inner" v-loading="uploading">
           <div class="upload-icon" aria-hidden="true">
             <el-icon :size="28"><DocumentAdd /></el-icon>
           </div>
@@ -78,7 +104,7 @@ onMounted(loadFiles)
             拖拽文件到此处，或 <span class="upload-link">点击上传</span>
           </div>
           <div class="upload-tip-text">
-            仅支持上传 PDF / Word / TXT / Markdown 格式，文件大小不超过 20MB
+            支持一次选择多个文件；仅支持 PDF / Word / TXT / Markdown，单文件不超过 20MB
           </div>
         </div>
       </el-upload>

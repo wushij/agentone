@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import UploadFile
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.models.file_asset import FileAsset, new_file_id
@@ -21,11 +21,27 @@ class FileService:
         self.db = db
         _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-    def list_files(self, user_id: int, *, keyword: str = "") -> list[FileAsset]:
+    def list_files(
+        self,
+        user_id: int,
+        *,
+        keyword: str = "",
+        page: int = 1,
+        size: int = 10,
+    ) -> tuple[list[FileAsset], int]:
         stmt = select(FileAsset).where(FileAsset.user_id == user_id)
+        count_stmt = select(func.count()).select_from(FileAsset).where(FileAsset.user_id == user_id)
         if keyword:
-            stmt = stmt.where(FileAsset.original_name.like(f"%{keyword}%"))
-        return list(self.db.scalars(stmt.order_by(desc(FileAsset.created_at))).all())
+            flt = FileAsset.original_name.like(f"%{keyword}%")
+            stmt = stmt.where(flt)
+            count_stmt = count_stmt.where(flt)
+        total = int(self.db.scalar(count_stmt) or 0)
+        rows = list(
+            self.db.scalars(
+                stmt.order_by(desc(FileAsset.created_at)).offset((page - 1) * size).limit(size)
+            ).all()
+        )
+        return rows, total
 
     def get_file(self, user_id: int, file_id: str) -> FileAsset | None:
         row = self.db.get(FileAsset, file_id)

@@ -1,4 +1,6 @@
 import request from './request'
+import type { ApiListParams, ApiPage } from '@/types/pagination'
+import { normalizePage } from '@/utils/normalizePage'
 import type { ChatMessage, ConversationSummary } from '@/types'
 
 export interface ConversationDetail extends ConversationSummary {
@@ -9,6 +11,8 @@ export interface ConversationDetail extends ConversationSummary {
 export interface WorkflowSnapshotNode {
   node: string
   status: 'pending' | 'running' | 'success' | 'error'
+  label?: string
+  detail?: string
   tool?: string
   elapsedMs?: number
   error?: string
@@ -30,17 +34,10 @@ export interface UpdateConversationPayload {
   isArchived?: boolean
 }
 
-export function listConversations(params?: { q?: string; limit?: number }) {
+export function listConversations(params?: ApiListParams & { q?: string }) {
   return request
-    .get<{ items: ConversationSummary[]; total: number } | ConversationSummary[]>(
-      '/conversations',
-      { params }
-    )
-    .then((res) => {
-      const data = res.data
-      if (Array.isArray(data)) return data
-      return data.items ?? []
-    })
+    .get<ApiPage<ConversationSummary>>('/conversations', { params })
+    .then((res) => normalizePage(res.data))
 }
 
 export function createConversation(payload?: CreateConversationPayload) {
@@ -93,6 +90,6 @@ export function exportConversation(conversationId: string) {
     .then((res) => res.data as unknown as string)
 }
 
-export function searchConversations(q: string) {
-  return listConversations({ q, limit: 50 })
+export function searchConversations(q: string, page = 1, size = 50) {
+  return listConversations({ q, page, size })
 }

@@ -23,8 +23,36 @@ _ALLOWED_OPS = {
 }
 
 
+_CN_OPERATOR_REPLACEMENTS = (
+    ("乘以", "*"),
+    ("乘上", "*"),
+    ("除以", "/"),
+    ("除上", "/"),
+    ("加上", "+"),
+    ("减去", "-"),
+    ("乘", "*"),
+    ("除", "/"),
+    ("加", "+"),
+    ("减", "-"),
+)
+
+
+def normalize_chinese_operators(text: str) -> str:
+    result = text
+    for cn, op in _CN_OPERATOR_REPLACEMENTS:
+        result = result.replace(cn, op)
+    result = re.sub(r"(\d)\s*[xX]\s*(\d)", r"\1*\2", result)
+    return result
+
+
+def looks_like_calculation(text: str) -> bool:
+    normalized = normalize_chinese_operators(text.strip())
+    return bool(re.search(r"\d+\s*[\+\-\*\/×÷]\s*\d+", normalized))
+
+
 def _normalize_expression(text: str) -> str:
-    normalized = text.replace("×", "*").replace("÷", "/").replace("（", "(").replace("）", ")")
+    normalized = normalize_chinese_operators(text)
+    normalized = normalized.replace("×", "*").replace("÷", "/").replace("（", "(").replace("）", ")")
     normalized = re.sub(r"[^\d\+\-\*\/\(\)\.\s]", "", normalized)
     return normalized.strip()
 
@@ -53,7 +81,7 @@ def evaluate_expression(expression: str) -> str:
 
 
 def extract_expression(user_input: str) -> str:
-    text = user_input.strip()
+    text = normalize_chinese_operators(user_input.strip())
     for prefix in ("计算", "算一下", "帮我算", "请计算", "calculate", "calc"):
         if text.lower().startswith(prefix.lower()):
             text = text[len(prefix) :].strip(" ：:，,")

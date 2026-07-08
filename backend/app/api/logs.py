@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from app.common.pagination import clamp_page, page_result
 from app.common.response import success
 from app.core.deps import require_permission
 from app.db.session import get_db
@@ -41,6 +42,9 @@ def _fmt_tool(row: ToolLog) -> dict:
     }
 
 
+_USER_MODULES = {"auth", "chat", "file", "profile", "user"}
+
+
 def _query_logs(
     log_type: str,
     user: User,
@@ -50,25 +54,26 @@ def _query_logs(
     page_size: int = 20,
 ) -> tuple[list[dict], int]:
     if log_type == "tool":
+        where = ToolLog.user_id == user.id
+        total = int(db.scalar(select(func.count()).select_from(ToolLog).where(where)) or 0)
         stmt = (
             select(ToolLog)
-            .where(ToolLog.user_id == user.id)
+            .where(where)
             .order_by(desc(ToolLog.created_at))
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
         rows = db.scalars(stmt).all()
-        return [_fmt_tool(r) for r in rows], len(rows)
+        return [_fmt_tool(r) for r in rows], total
 
     if log_type == "user":
         rows, total = AuditLogService(db).list_logs(
             user_id=user.id,
-            module=None,
+            modules=_USER_MODULES,
             page=page,
             page_size=page_size,
         )
-        items = [_fmt_audit(r) for r in rows if r.module in {"auth", "chat", "file", "profile", "user"}]
-        return items, total
+        return [_fmt_audit(r) for r in rows], total
 
     if log_type == "agent":
         rows, total = AuditLogService(db).list_logs(
@@ -92,12 +97,13 @@ def _query_logs(
 def list_logs(
     log_type: str = Query(default="tool", alias="type"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+    size: int = Query(default=10, ge=1, le=100, alias="pageSize"),
     user: User = Depends(require_permission("log:read")),
     db: Session = Depends(get_db),
 ):
-    items, total = _query_logs(log_type, user, db, page=page, page_size=page_size)
-    return success({"items": items, "total": total, "page": page, "pageSize": page_size})
+    page, size = clamp_page(page, size)
+    items, total = _query_logs(log_type, user, db, page=page, page_size=size)
+    return success(page_result(items, total))
 
 
 @router.get("/export")
@@ -117,6 +123,29 @@ def export_logs(
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="logs_{log_type}.txt"'},
     )
+
+
+@router.delete("/clear")
+def clear_all_logs(
+    log_type: str = Query(default="tool", alias="type"),
+    user: User = Depends(require_permission("log:read")),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import delete
+    if log_type == "tool":
+        db.execute(delete(ToolLog).where(ToolLog.user_id == user.id))
+        db.commit()
+        return success(None, message="所有 Tool 日志已清空")
+
+    if log_type == "user":
+        db.execute(delete(AuditLog).where(AuditLog.user_id == user.id, AuditLog.module.in_(_USER_MODULES)))
+    elif log_type == "agent":
+        db.execute(delete(AuditLog).where(AuditLog.user_id == user.id, AuditLog.module == "agent"))
+    else:
+        db.execute(delete(AuditLog).where(AuditLog.user_id == user.id, AuditLog.module == "system"))
+
+    db.commit()
+    return success(None, message="所有审计日志已清空")
 
 
 @router.delete("/{log_id}")

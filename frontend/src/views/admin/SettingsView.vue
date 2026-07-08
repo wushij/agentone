@@ -201,7 +201,7 @@ async function save() {
 
 .custom-number :deep(.el-input-number.is-focus),
 .custom-number :deep(.el-input-number:focus-within) {
-  background: #fff !important;
+  background: var(--ao-surface) !important;
   box-shadow: 0 0 0 1px #4f46e5 inset !important;
 }
 
@@ -237,7 +237,7 @@ async function save() {
 
 .custom-input :deep(.el-input__wrapper.is-focus),
 .custom-textarea :deep(.el-textarea__inner:focus) {
-  background: #fff !important;
+  background: var(--ao-surface) !important;
   box-shadow: 0 0 0 1px #4f46e5 inset !important;
   transform: none !important;
 }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
@@ -37,18 +37,22 @@ class AuditLogService:
         *,
         user_id: int | None = None,
         module: str | None = None,
+        modules: set[str] | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[AuditLog], int]:
         stmt = select(AuditLog)
-        count_stmt = select(AuditLog.id)
+        count_stmt = select(func.count()).select_from(AuditLog)
         if user_id is not None:
             stmt = stmt.where(AuditLog.user_id == user_id)
             count_stmt = count_stmt.where(AuditLog.user_id == user_id)
         if module:
             stmt = stmt.where(AuditLog.module == module)
             count_stmt = count_stmt.where(AuditLog.module == module)
-        total = len(self.db.scalars(count_stmt).all())
+        if modules:
+            stmt = stmt.where(AuditLog.module.in_(modules))
+            count_stmt = count_stmt.where(AuditLog.module.in_(modules))
+        total = int(self.db.scalar(count_stmt) or 0)
         rows = (
             self.db.scalars(
                 stmt.order_by(desc(AuditLog.created_at))

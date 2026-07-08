@@ -6,6 +6,8 @@ export interface AgentNodeStatus {
   conversationId: string
   node: string
   status: 'pending' | 'running' | 'success' | 'error'
+  label?: string
+  detail?: string
   tool?: string
   elapsedMs?: number
   error?: string
@@ -13,6 +15,18 @@ export interface AgentNodeStatus {
 }
 
 const NODE_ORDER = ['planner', 'researcher', 'tool', 'reviewer', 'summarizer']
+
+/** Map stream/graph node names to pipeline slots shown in the monitor. */
+const PIPELINE_NODE_MAP: Record<string, string> = {
+  prepare: 'planner',
+  rag: 'researcher',
+  planner: 'planner',
+  researcher: 'researcher',
+  tool: 'tool',
+  reviewer: 'reviewer',
+  summarizer: 'summarizer',
+  format: 'summarizer',
+}
 
 export const useAgentStore = defineStore('agent', () => {
   const nodeStates = ref<Record<string, AgentNodeStatus>>({})
@@ -38,15 +52,25 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   function applyStatus(payload: Record<string, unknown>) {
-    const node = String(payload.node ?? '')
-    if (!node) return
+    const rawNode = String(payload.node ?? '')
+    const node = PIPELINE_NODE_MAP[rawNode] ?? rawNode
+    if (!node || !NODE_ORDER.includes(node)) return
+
+    const prev = nodeStates.value[node]
+    const elapsedMs =
+      typeof payload.elapsedMs === 'number' && payload.elapsedMs > 0
+        ? payload.elapsedMs
+        : prev?.elapsedMs
+
     nodeStates.value[node] = {
-      conversationId: String(payload.conversationId ?? ''),
+      conversationId: String(payload.conversationId ?? prev?.conversationId ?? ''),
       node,
       status: (payload.status as AgentNodeStatus['status']) ?? 'running',
-      tool: payload.tool ? String(payload.tool) : undefined,
-      elapsedMs: typeof payload.elapsedMs === 'number' ? payload.elapsedMs : undefined,
-      error: payload.error ? String(payload.error) : undefined,
+      label: payload.label ? String(payload.label) : prev?.label,
+      detail: payload.detail ? String(payload.detail) : prev?.detail,
+      tool: payload.tool ? String(payload.tool) : prev?.tool,
+      elapsedMs,
+      error: payload.error ? String(payload.error) : prev?.error,
       updatedAt: new Date().toISOString(),
     }
     if (payload.conversationId) {
@@ -63,6 +87,8 @@ export const useAgentStore = defineStore('agent', () => {
         conversationId: snapshot.conversationId,
         node: item.node,
         status: item.status,
+        label: item.label,
+        detail: item.detail,
         tool: item.tool,
         elapsedMs: item.elapsedMs,
         error: item.error,

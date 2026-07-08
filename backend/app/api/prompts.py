@@ -1,10 +1,11 @@
 """backend/app/api/prompts.py"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.common.pagination import clamp_page, page_result
 from app.common.response import success
 from app.core.deps import require_permission
 from app.db.session import get_db
@@ -28,10 +29,32 @@ class PromptStatusRequest(BaseModel):
     enabled: bool
 
 
-@router.get("")
-def list_prompts(user: User = Depends(require_permission("prompt:manage")), db: Session = Depends(get_db)):
+@router.post("/sync-builtin")
+def sync_builtin_prompts(
+    user: User = Depends(require_permission("prompt:manage")),
+    db: Session = Depends(get_db),
+):
     svc = PromptService(db)
-    return success([svc.to_dict(p) for p in svc.list_prompts()])
+    changed = svc.ensure_builtin_prompts(sync_files=True)
+    rows, total = svc.list_prompts(page=1, size=500)
+    return success(
+        {"changed": changed, "prompts": [svc.to_dict(p) for p in rows], "total": total},
+        message="已同步" if changed else "已是最新",
+    )
+
+
+@router.get("")
+def list_prompts(
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
+    user: User = Depends(require_permission("prompt:manage")),
+    db: Session = Depends(get_db),
+):
+    svc = PromptService(db)
+    page, size = clamp_page(page, size)
+    rows, total = svc.list_prompts(page=page, size=size)
+    records = [svc.to_dict(p) for p in rows]
+    return success(page_result(records, total))
 
 
 @router.post("")
@@ -90,12 +113,15 @@ class PromptRollbackRequest(BaseModel):
 @router.get("/{name}/history")
 def get_prompt_history(
     name: str,
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
     user: User = Depends(require_permission("prompt:manage")),
     db: Session = Depends(get_db),
 ):
     svc = PromptService(db)
-    rows = svc.list_history(name)
-    return success([
+    page, size = clamp_page(page, size)
+    rows, total = svc.list_history(name, page=page, size=size)
+    records = [
         {
             "id": r.id,
             "version": r.version,
@@ -103,7 +129,8 @@ def get_prompt_history(
             "createdAt": r.created_at.isoformat() if r.created_at else None,
         }
         for r in rows
-    ])
+    ]
+    return success(page_result(records, total))
 
 
 @router.post("/{name}/rollback")

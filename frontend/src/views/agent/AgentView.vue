@@ -8,6 +8,7 @@ import { formatDateTime } from '@/utils/datetime'
 import { useAgentStore } from '@/stores/agent'
 import { useChatStore } from '@/stores/chat'
 import { useNotifySocket } from '@/composables/useNotifySocket'
+import { renderMarkdown } from '@/utils/markdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -54,12 +55,90 @@ const runningNode = computed(() =>
   agentStore.orderedNodes.find((n) => n.state.status === 'running')
 )
 
+const slowestNode = computed(() => {
+  let best: (typeof agentStore.orderedNodes)[number] | null = null
+  let maxMs = 0
+  for (const item of agentStore.orderedNodes) {
+    const ms = item.state.elapsedMs ?? 0
+    if (ms > maxMs) {
+      maxMs = ms
+      best = item
+    }
+  }
+  return best && maxMs > 0 ? { item: best, ms: maxMs } : null
+})
+
+const failedNodes = computed(() =>
+  agentStore.orderedNodes.filter((n) => n.state.status === 'error')
+)
+
 const totalElapsed = computed(() =>
   agentStore.orderedNodes.reduce((sum, n) => sum + (n.state.elapsedMs ?? 0), 0)
 )
 
 const metricCards = computed(() => {
-  const current = runningNode.value
+  const isRunning = Boolean(runningNode.value)
+  const slowest = slowestNode.value
+  const failed = failedNodes.value
+
+  let middleCard: {
+    title: string
+    value: string
+    unit: string
+    color: string
+    trend: 'up' | 'flat'
+    trendText: string
+  }
+
+  if (isRunning && runningNode.value) {
+    middleCard = {
+      title: '当前节点',
+      value: NODE_LABELS[runningNode.value.node] ?? runningNode.value.node,
+      unit: '',
+      color: '#0d9488',
+      trend: 'up',
+      trendText: runningNode.value.state.detail || '正在执行'
+    }
+  } else if (failed.length > 0) {
+    const first = failed[0]
+    middleCard = {
+      title: '异常步骤',
+      value: NODE_LABELS[first.node] ?? first.node,
+      unit: '',
+      color: '#dc2626',
+      trend: 'flat',
+      trendText: first.state.error || `共 ${failed.length} 步失败`
+    }
+  } else if (slowest) {
+    const pct = totalElapsed.value > 0 ? Math.round((slowest.ms / totalElapsed.value) * 100) : 0
+    middleCard = {
+      title: '瓶颈步骤',
+      value: NODE_LABELS[slowest.item.node] ?? slowest.item.node,
+      unit: '',
+      color: '#0d9488',
+      trend: 'flat',
+      trendText: `耗时 ${formatElapsed(slowest.ms, false)}${formatElapsed(slowest.ms, true)}${pct > 0 ? ` · 占 ${pct}%` : ''}`
+    }
+  } else if (hasHistory.value) {
+    middleCard = {
+      title: '执行状态',
+      value: '已完成',
+      unit: '',
+      color: '#22c55e',
+      trend: 'flat',
+      trendText: '各步骤均已执行完毕'
+    }
+  } else {
+    middleCard = {
+      title: '执行状态',
+      value: '—',
+      unit: '',
+      color: '#64748b',
+      trend: 'flat',
+      trendText: '等待任务触发'
+    }
+  }
+
   return [
     {
       title: '执行进度',
@@ -69,14 +148,7 @@ const metricCards = computed(() => {
       trend: 'flat' as const,
       trendText: `已完成 ${agentStore.orderedNodes.filter((n) => n.state.status === 'success').length} / ${agentStore.orderedNodes.length} 步`
     },
-    {
-      title: '当前节点',
-      value: current ? (NODE_LABELS[current.node] ?? current.node) : '—',
-      unit: '',
-      color: current ? '#0d9488' : '#64748b',
-      trend: current ? ('up' as const) : ('flat' as const),
-      trendText: current ? '正在执行' : hasHistory.value ? '显示上次执行结果' : '等待任务触发'
-    },
+    middleCard,
     {
       title: '累计耗时',
       value: formatElapsed(totalElapsed.value, false),
@@ -155,6 +227,24 @@ watch(
     }
   }
 )
+
+const detailDialogVisible = ref(false)
+const selectedNode = ref<any>(null)
+
+function showNodeDetail(item: any) {
+  selectedNode.value = item
+  detailDialogVisible.value = true
+}
+
+const renderedDetail = computed(() => {
+  if (!selectedNode.value || !selectedNode.value.state.detail) return ''
+  return renderMarkdown(selectedNode.value.state.detail)
+})
+
+const selectedNodeIndex = computed(() => {
+  if (!selectedNode.value) return -1
+  return agentStore.orderedNodes.findIndex((n) => n.node === selectedNode.value.node)
+})
 </script>
 
 <template>
@@ -227,15 +317,21 @@ watch(
             <div
               class="pipeline-node"
               :class="[`is-${item.state.status}`, { 'is-active': item.state.status === 'running' }]"
+              @click="showNodeDetail(item)"
             >
               <div class="pipeline-node__step">{{ index + 1 }}</div>
               <div class="pipeline-node__name">{{ NODE_LABELS[item.node] ?? item.node }}</div>
               <el-tag :type="STATUS_TAG[item.state.status] ?? 'info'" size="small" round>
                 {{ STATUS_LABELS[item.state.status] ?? item.state.status }}
               </el-tag>
+              <div v-if="item.state.detail" class="pipeline-node__detail" :title="item.state.detail">
+                {{ item.state.detail }}
+              </div>
               <div v-if="item.state.tool || item.state.elapsedMs" class="pipeline-node__extra">
-                <span v-if="item.state.tool">{{ item.state.tool }}</span>
-                <span v-if="item.state.elapsedMs">{{ formatElapsed(item.state.elapsedMs, false) }}{{ formatElapsed(item.state.elapsedMs, true) }}</span>
+                <span v-if="item.state.tool" class="pipeline-node__tool">{{ item.state.tool }}</span>
+                <span v-if="item.state.elapsedMs" class="pipeline-node__time">
+                  {{ formatElapsed(item.state.elapsedMs, false) }}{{ formatElapsed(item.state.elapsedMs, true) }}
+                </span>
               </div>
               <div v-if="item.state.error" class="pipeline-node__error">{{ item.state.error }}</div>
             </div>
@@ -245,6 +341,57 @@ watch(
           </template>
         </div>
       </el-card>
+
+      <!-- Workflow Step Detail Preview Dialog -->
+      <el-dialog
+        v-model="detailDialogVisible"
+        :title="selectedNode ? `${NODE_LABELS[selectedNode.node] ?? selectedNode.node} 节点执行详情` : '节点详情'"
+        width="660px"
+        append-to-body
+        destroy-on-close
+        class="ao-detail-dialog"
+      >
+        <div v-if="selectedNode" class="node-preview-dialog">
+          <div class="node-meta-row">
+            <div class="meta-pill">
+              <span class="meta-pill__label">步骤</span>
+              <span class="meta-pill__val">第 {{ selectedNodeIndex + 1 }} 步</span>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-pill__label">状态</span>
+              <el-tag :type="STATUS_TAG[selectedNode.state.status] ?? 'info'" size="small" round>
+                {{ STATUS_LABELS[selectedNode.state.status] ?? selectedNode.state.status }}
+              </el-tag>
+            </div>
+            <div v-if="selectedNode.state.elapsedMs" class="meta-pill">
+              <span class="meta-pill__label">耗时</span>
+              <span class="meta-pill__val">{{ selectedNode.state.elapsedMs }} ms</span>
+            </div>
+            <div v-if="selectedNode.state.tool" class="meta-pill">
+              <span class="meta-pill__label">所调工具</span>
+              <span class="meta-pill__val tool-name">{{ selectedNode.state.tool }}</span>
+            </div>
+          </div>
+
+          <div class="node-detail-section">
+            <h4 class="section-title">执行输出 / 详情</h4>
+            <div class="detail-box">
+              <div v-if="renderedDetail" class="chat-markdown" v-html="renderedDetail" />
+              <span v-else class="detail-empty">无详细执行数据</span>
+            </div>
+          </div>
+
+          <div v-if="selectedNode.state.error" class="node-error-section">
+            <h4 class="section-title error-title">异常/错误日志</h4>
+            <div class="error-box">
+              <pre class="error-pre">{{ selectedNode.state.error }}</pre>
+            </div>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="detailDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -352,12 +499,29 @@ watch(
   color: var(--ao-text-primary);
 }
 
+.pipeline-node__detail {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ao-text-secondary);
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
 .pipeline-node__extra {
   display: flex;
   flex-direction: column;
   gap: 2px;
   font-size: 11px;
   color: var(--ao-text-muted);
+}
+
+.pipeline-node__tool {
+  font-weight: 600;
+  color: var(--ao-text-secondary);
 }
 
 .pipeline-node__error {
@@ -392,5 +556,102 @@ watch(
     transform: rotate(90deg);
     padding: 4px 0;
   }
+}
+
+/* ── Node Preview Dialog styles ── */
+.pipeline-node {
+  cursor: pointer;
+}
+.pipeline-node:hover {
+  transform: translateY(-2px);
+}
+
+.node-preview-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.node-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ao-surface-border);
+}
+
+.meta-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ao-surface-muted);
+  border: 1px solid var(--ao-surface-border);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.meta-pill__label {
+  color: var(--ao-text-muted);
+  font-weight: 500;
+}
+
+.meta-pill__val {
+  color: var(--ao-text-primary);
+  font-weight: 600;
+}
+
+.meta-pill__val.tool-name {
+  color: var(--theme-primary);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.node-detail-section,
+.node-error-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ao-text-primary);
+}
+
+.section-title.error-title {
+  color: var(--ao-danger);
+}
+
+.detail-box,
+.error-box {
+  background: var(--ao-surface-muted);
+  border: 1px solid var(--ao-surface-border);
+  border-radius: 12px;
+  padding: 16px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.detail-box :deep(.chat-markdown) {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.error-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ao-danger);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.detail-empty {
+  font-size: 13px;
+  color: var(--ao-text-muted);
+  font-style: italic;
 }
 </style>

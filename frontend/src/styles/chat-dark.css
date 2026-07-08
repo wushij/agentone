@@ -1,0 +1,155 @@
+/* Chat UI dark-mode contrast fixes */
+
+html.dark .chat-markdown {
+  color: var(--ao-chat-bubble-ai-text);
+}
+
+html.dark .chat-markdown strong,
+html.dark .chat-markdown h1,
+html.dark .chat-markdown h2,
+html.dark .chat-markdown h3,
+html.dark .chat-markdown h4 {
+  color: var(--ao-text-primary);
+}
+
+html.dark .chat-markdown blockquote {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--ao-text-secondary);
+  border-left-color: #818cf8;
+}
+
+html.dark .chat-markdown a {
+  color: #a5b4fc;
+}
+
+html.dark .chat-markdown a:hover {
+  color: #c7d2fe;
+}
+
+html.dark .chat-markdown th,
+html.dark .chat-markdown td {
+  border-color: var(--ao-surface-border);
+}
+
+html.dark .chat-markdown th {
+  background: var(--ao-surface-muted);
+  color: var(--ao-text-primary);
+}
+
+html.dark .chat-markdown pre {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+html.dark .chat-markdown pre code {
+  color: #e2e8f0;
+}
+
+html.dark .chat-markdown :not(pre) > code {
+  background: rgba(129, 140, 248, 0.18);
+  color: #c7d2fe;
+}
+
+html.dark .chat-markdown hr {
+  border-top-color: var(--ao-surface-border);
+}
+
+html.dark .chat-markdown li::marker {
+  color: #818cf8;
+}
+
+html.dark .bubble--ai {
+  background: var(--ao-chat-bubble-ai-bg) !important;
+  color: var(--ao-chat-bubble-ai-text) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.dark .message-avatar--ai {
+  background: var(--ao-surface) !important;
+  border-color: var(--ao-surface-border) !important;
+}
+
+html.dark .action-chip {
+  background: var(--ao-surface-muted) !important;
+  border-color: var(--ao-surface-border) !important;
+  color: var(--ao-text-secondary) !important;
+}
+
+html.dark .action-chip:hover {
+  background: var(--ao-surface) !important;
+  color: var(--theme-primary) !important;
+}
+
+html.dark .source-card {
+  background: var(--ao-retrieval-source-bg) !important;
+  border-color: var(--ao-surface-border) !important;
+}
+
+html.dark .source-card:hover {
+  background: #323845 !important;
+  border-color: rgba(129, 140, 248, 0.35) !important;
+}
+
+html.dark .qa-format,
+html.dark .text-format .raw-content {
+  background: var(--ao-retrieval-inner-bg) !important;
+  border-color: var(--ao-surface-border) !important;
+  color: var(--ao-text-secondary) !important;
+}
+
+html.dark .q-badge {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: var(--ao-qa-q-color) !important;
+}
+
+html.dark .a-badge {
+  background: rgba(13, 148, 136, 0.22) !important;
+  color: var(--ao-qa-a-color) !important;
+}
+
+html.dark .qa-text {
+  color: var(--ao-text-primary) !important;
+}
+
+html.dark .kb-tag {
+  background: rgba(129, 140, 248, 0.14) !important;
+  color: #c7d2fe !important;
+  border-color: rgba(129, 140, 248, 0.28) !important;
+}
+
+html.dark .thinking-panel {
+  background: var(--ao-thinking-panel-bg) !important;
+  border-color: rgba(129, 140, 248, 0.22) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+html.dark .thinking-step__label {
+  color: var(--ao-text-primary) !important;
+}
+
+html.dark .thinking-step .ok {
+  color: #34d399 !important;
+}
+
+html.dark .thinking-step .err {
+  color: #f87171 !important;
+}
+
+html.dark .tool-card {
+  background: var(--ao-tool-card-bg) !important;
+  border-color: var(--ao-surface-border) !important;
+}
+
+html.dark .tool-card--running {
+  background: var(--ao-tool-card-running-bg) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+html.dark .tool-card__name {
+  color: var(--ao-text-primary) !important;
+}
+
+html.dark .tool-card__code--result {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.28) !important;
+}

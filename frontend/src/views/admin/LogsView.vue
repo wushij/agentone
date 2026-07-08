@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CopyDocument, Document, Download } from '@element-plus/icons-vue'
+import { CopyDocument, Delete, Document, Download } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import TablePagination from '@/components/common/TablePagination.vue'
+import { usePagination } from '@/composables/usePagination'
 import { confirmAction, confirmDelete } from '@/utils/confirm'
-import { deleteLog, exportLogs, fetchLogs } from '@/api/admin'
+import { deleteLog, exportLogs, fetchLogs, clearLogs } from '@/api/admin'
 
 interface LogRow {
   id: number
@@ -22,14 +24,17 @@ const logs = ref<LogRow[]>([])
 const loading = ref(false)
 const detailVisible = ref(false)
 const current = ref<LogRow | null>(null)
+const { page, size, total, resetPage } = usePagination(10)
 
 async function loadLogs() {
   loading.value = true
   try {
-    const data = await fetchLogs(activeTab.value)
-    logs.value = data.items ?? []
+    const data = await fetchLogs(activeTab.value, page.value, size.value)
+    logs.value = data.records
+    total.value = data.total
   } catch {
     logs.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -101,8 +106,28 @@ async function handleDelete(row: LogRow) {
   }
 }
 
+async function handleClearAll() {
+  const tabName = tabLabels[activeTab.value] ?? activeTab.value
+  const ok = await confirmAction({
+    title: '清空确认',
+    message: `确定清空所有「${tabName}」吗？清空后无法恢复。`,
+    confirmButtonText: '确定清空',
+    type: 'warning'
+  })
+  if (!ok) return
+
+  try {
+    await clearLogs(activeTab.value)
+    ElMessage.success('清空成功')
+    await loadLogs()
+  } catch {
+    ElMessage.error('清空失败')
+  }
+}
+
 watch(activeTab, (val) => {
   localStorage.setItem('logs_active_tab', val)
+  resetPage()
   void loadLogs()
 })
 
@@ -113,7 +138,8 @@ onMounted(() => void loadLogs())
   <div class="view-page">
     <PageHeader title="日志中心" subtitle="用户 / Agent / Tool / 系统运行日志">
       <template #action>
-        <el-button :icon="Download" @click="handleExport">导出日志</el-button>
+        <el-button type="danger" plain :icon="Delete" @click="handleClearAll">清空{{ tabLabels[activeTab] || '日志' }}</el-button>
+        <el-button :icon="Download" @click="handleExport">导出{{ tabLabels[activeTab] || '日志' }}</el-button>
       </template>
     </PageHeader>
 
@@ -166,8 +192,10 @@ onMounted(() => void loadLogs())
         </el-table-column>
       </el-table>
 
+      <TablePagination v-model:page="page" v-model:size="size" :total="total" @change="loadLogs" />
+
       <EmptyState
-        v-if="!loading && !logs.length"
+        v-if="!loading && total === 0"
         title="暂无日志"
         :description="activeTab === 'tool' ? 'Tool 调用后将在此记录' : '该类型日志将在有操作后显示'"
       />

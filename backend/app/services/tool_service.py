@@ -33,7 +33,7 @@ class ToolService:
             items.append(
                 {
                     "name": builtin.name,
-                    "description": cfg.description if cfg else builtin.description,
+                    "description": builtin.description,
                     "type": cfg.tool_type if cfg else "builtin",
                     "status": "enabled" if (cfg.enabled if cfg else 1) == 1 else "disabled",
                 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Brush } from '@element-plus/icons-vue'
+import { Check, MagicStick } from '@element-plus/icons-vue'
 import { themePresetList } from '@/utils/theme'
 import type { ThemePresetId } from '@/utils/theme'
 
@@ -18,7 +18,7 @@ defineEmits<{
   <el-popover trigger="click" placement="bottom-end" :width="320" :show-arrow="false">
     <template #reference>
       <button type="button" class="theme-trigger" title="主题风格">
-        <el-icon :size="18"><Brush /></el-icon>
+        <el-icon :size="18"><MagicStick /></el-icon>
       </button>
     </template>
     <div class="theme-picker-content">
@@ -58,7 +58,7 @@ defineEmits<{
 .theme-trigger {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--ao-radius-full);
   border: 1px solid var(--theme-border, var(--ao-border));
   background: transparent;
   color: var(--ao-text-secondary);

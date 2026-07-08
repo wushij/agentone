@@ -6,7 +6,7 @@ from __future__ import annotations
 
 
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 
 
+from app.common.pagination import clamp_page, page_result
 from app.common.response import success
 
 from app.core.deps import require_permission
@@ -60,6 +61,8 @@ class ModelCreateRequest(BaseModel):
 
 class ModelUpdateRequest(BaseModel):
 
+    name: str | None = None
+
     provider: str | None = None
 
     model_name: str | None = Field(default=None, alias="modelName")
@@ -88,6 +91,7 @@ def list_available_models(
     db: Session = Depends(get_db),
 ):
     svc = ModelService(db)
+    rows, _ = svc.list_models(page=1, size=500)
     items = [
         {
             "name": m.name,
@@ -95,7 +99,7 @@ def list_available_models(
             "provider": m.provider,
             "isDefault": m.is_default == 1,
         }
-        for m in svc.list_models()
+        for m in rows
         if m.status == 1
     ]
     return success(items)
@@ -103,11 +107,18 @@ def list_available_models(
 
 @router.get("")
 
-def list_models(user: User = Depends(require_permission("model:manage")), db: Session = Depends(get_db)):
+def list_models(
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
+    user: User = Depends(require_permission("model:manage")),
+    db: Session = Depends(get_db),
+):
 
     svc = ModelService(db)
-
-    return success([svc.to_dict(m) for m in svc.list_models()])
+    page, size = clamp_page(page, size)
+    rows, total = svc.list_models(page=page, size=size)
+    records = [svc.to_dict(m) for m in rows]
+    return success(page_result(records, total))
 
 
 

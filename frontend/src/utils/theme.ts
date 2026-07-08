@@ -143,6 +143,27 @@ function rgba(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+function relativeLuminance(r: number, g: number, b: number) {
+  const channel = (c: number) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+/** 深色背景上若主色过暗，提亮以保证菜单、标签等可读 */
+function ensureReadableOnDark(hex: string) {
+  const { r, g, b } = hexToRgb(hex)
+  if (relativeLuminance(r, g, b) >= 0.45) return hex
+  const target = { r: 203, g: 213, b: 225 }
+  const mix = 0.82
+  return rgbToHex(
+    r + (target.r - r) * mix,
+    g + (target.g - g) * mix,
+    b + (target.b - b) * mix
+  )
+}
+
 function darken(hex: string, ratio: number) {
   const { r, g, b } = hexToRgb(hex)
   const factor = 1 - ratio
@@ -199,20 +220,26 @@ function applySurfaceVars(theme: ThemeVars, dark: boolean) {
 }
 
 function applyBrandVars(theme: ThemeVars) {
+  const dark = resolveDark(loadColorMode())
+  const primary = dark ? ensureReadableOnDark(theme.primary) : theme.primary
+  const primaryHover = dark ? ensureReadableOnDark(theme.primaryHover) : theme.primaryHover
+  const primaryActive = dark ? ensureReadableOnDark(theme.primaryActive) : theme.primaryActive
+  const mutedAlpha = dark ? 0.16 : 0.08
+
   const root = document.documentElement
 
   root.dataset.theme = theme.id
-  root.style.setProperty('--theme-primary', theme.primary)
-  root.style.setProperty('--theme-primary-hover', theme.primaryHover)
-  root.style.setProperty('--theme-primary-active', theme.primaryActive)
-  root.style.setProperty('--theme-primary-muted', rgba(theme.primary, 0.08))
-  root.style.setProperty('--theme-primary-muted-strong', rgba(theme.primary, 0.14))
+  root.style.setProperty('--theme-primary', primary)
+  root.style.setProperty('--theme-primary-hover', primaryHover)
+  root.style.setProperty('--theme-primary-active', primaryActive)
+  root.style.setProperty('--theme-primary-muted', rgba(primary, mutedAlpha))
+  root.style.setProperty('--theme-primary-muted-strong', rgba(primary, mutedAlpha + 0.06))
   root.style.setProperty(
     '--theme-primary-gradient',
-    `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primaryHover} 100%)`
+    `linear-gradient(135deg, ${primary} 0%, ${primaryHover} 100%)`
   )
-  root.style.setProperty('--theme-logo-end', theme.primaryActive)
-  root.style.setProperty('--el-color-primary', theme.primary)
+  root.style.setProperty('--theme-logo-end', primaryActive)
+  root.style.setProperty('--el-color-primary', primary)
 }
 
 function applyThemeVars(theme: ThemeVars) {
@@ -323,5 +350,6 @@ export function applyColorMode(mode: ColorMode) {
   document.documentElement.classList.toggle('dark', dark)
   if (activeTheme) {
     applySurfaceVars(activeTheme, dark)
+    applyBrandVars(activeTheme)
   }
 }

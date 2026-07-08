@@ -14,7 +14,9 @@ def merge_metadata(left: dict[str, Any] | None, right: dict[str, Any] | None) ->
     return merged
 
 
-IntentType = Literal["chat", "calculator", "search", "database", "file", "unknown"]
+IntentType = Literal[
+    "chat", "calculator", "search", "database", "file", "prompt_engineer", "unknown"
+]
 
 
 class AgentState(TypedDict, total=False):

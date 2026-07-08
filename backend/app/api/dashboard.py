@@ -35,10 +35,9 @@ from app.models.tool_log import ToolLog
 from app.models.user import User
 
 from app.services.conversation_service import ConversationService
-
+from app.services.model_service import ModelService
 from app.services.settings_store import settings_store
-
-
+from app.services.user_stats_service import get_deleted_tokens
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
@@ -81,14 +80,11 @@ def dashboard_stats(
 
 
     total_tokens = db.scalar(
-
         select(func.coalesce(func.sum(Message.tokens), 0))
-
         .join(Conversation, Conversation.id == Message.conversation_id)
-
         .where(Conversation.user_id == user.id)
-
     ) or 0
+    total_tokens += get_deleted_tokens(user.id)
 
 
 
@@ -126,54 +122,47 @@ def dashboard_stats(
 
 
 
-    recent = conv_service.list_conversations(user.id).items[:5]
-
+    recent = conv_service.list_conversations(user.id, page=1, size=5).records
     announcement = store.get("announcement", "")
 
+    model_service = ModelService(db)
+    active_model = model_service.get_default()
 
+    if active_model:
+        model_name = active_model.model_name
+        model_status = "online"
+    else:
+        if settings.LLM_PROVIDER == "deepseek" and settings.DEEPSEEK_API_KEY:
+            model_name = settings.DEEPSEEK_MODEL
+            model_status = "online"
+        elif settings.LLM_PROVIDER == "mock":
+            model_name = "mock-chat"
+            model_status = "online"
+        else:
+            model_name = "未配置模型"
+            model_status = "offline"
 
     return success(
-
         {
-
             "todayConversations": today_conversations,
-
             "totalTokens": int(total_tokens),
-
             "toolCalls": int(tool_calls),
-
-            "modelStatus": "online" if settings.LLM_PROVIDER in {"mock", "deepseek"} else "offline",
-
-            "modelName": settings.DEEPSEEK_MODEL if settings.LLM_PROVIDER == "deepseek" else "mock-chat",
-
+            "modelStatus": model_status,
+            "modelName": model_name,
             "recentConversations": [item.model_dump(by_alias=True) for item in recent],
-
             "weeklyConversations": weekly,
-
             "tokenUsagePercent": min(100, int(total_tokens / 10000 * 100)) if total_tokens else 0,
-
             "announcements": [
-
                 {
-
                     "id": "ann_system",
-
                     "title": "系统公告",
-
                     "body": announcement,
-
                     "timestamp": datetime.now().isoformat(),
-
                 }
-
             ]
-
             if announcement
-
             else [],
-
         }
-
     )
 
 

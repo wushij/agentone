@@ -8,7 +8,7 @@ _PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 _cache: dict[str, str] = {}
 
 
-def load_prompt(name: str, fallback: str = "") -> str:
+def _load_raw_prompt(name: str, fallback: str = "") -> str:
     if name in _cache:
         return _cache[name]
     try:
@@ -31,6 +31,23 @@ def load_prompt(name: str, fallback: str = "") -> str:
         _cache[name] = content
         return content
     return fallback
+
+
+def load_persona() -> str:
+    return _load_raw_prompt(
+        "persona",
+        "你是 AgentOne 智能助手，回答准确简洁，使用 emoji 分节与 Markdown 列表排版。",
+    )
+
+
+def load_prompt(name: str, fallback: str = "") -> str:
+    content = _load_raw_prompt(name, fallback)
+    persona = load_persona()
+    if "{{PERSONA}}" in content:
+        content = content.replace("{{PERSONA}}", persona)
+    elif name in ("system", "summary") and "AgentOne 智能助手" not in content:
+        content = f"{persona}\n\n{content}"
+    return content
 
 
 def clear_prompt_cache(name: str | None = None) -> None:

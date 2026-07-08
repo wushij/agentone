@@ -15,10 +15,6 @@ function delay(ms: number) {
   })
 }
 
-function isUnauthorizedStatus(status?: number) {
-  return status === 401 || status === 403
-}
-
 function hasValidProfile(profile: UserProfile | null | undefined): profile is UserProfile {
   return Boolean(profile?.role)
 }

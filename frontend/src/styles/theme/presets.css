@@ -1,0 +1,35 @@
+/* ── Theme presets (V1.1) ── */
+[data-theme='slate'] {
+  --theme-primary: #0f172a;
+  --theme-primary-hover: #1e293b;
+  --theme-primary-gradient: linear-gradient(135deg, #0f172a 0%, #334155 50%, #475569 100%);
+  --theme-primary-muted: rgba(15, 23, 42, 0.1);
+}
+
+[data-theme='teal'] {
+  --theme-primary: #0d9488;
+  --theme-primary-hover: #0f766e;
+  --theme-primary-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%);
+  --theme-primary-muted: rgba(13, 148, 136, 0.12);
+}
+
+[data-theme='violet'] {
+  --theme-primary: #7c3aed;
+  --theme-primary-hover: #6d28d9;
+  --theme-primary-gradient: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%);
+  --theme-primary-muted: rgba(124, 58, 237, 0.12);
+}
+
+[data-theme='emerald'] {
+  --theme-primary: #059669;
+  --theme-primary-hover: #047857;
+  --theme-primary-gradient: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+  --theme-primary-muted: rgba(5, 150, 105, 0.12);
+}
+
+[data-theme='rose'] {
+  --theme-primary: #e11d48;
+  --theme-primary-hover: #be123c;
+  --theme-primary-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 50%, #fb7185 100%);
+  --theme-primary-muted: rgba(225, 29, 72, 0.12);
+}

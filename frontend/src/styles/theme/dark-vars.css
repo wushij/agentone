@@ -1,0 +1,102 @@
+/* 深色模式 CSS 变量 — 奢华星空深蓝 (Space Obsidian Navy) */
+html.dark {
+  color-scheme: dark;
+  --theme-bg: #090b11;
+  --theme-sidebar-bg: #0f121a;
+  --theme-border: rgba(255, 255, 255, 0.06);
+  --theme-text-base: #f1f5f9;
+  --theme-text-secondary: #94a3b8;
+  --ao-text-primary: #f1f5f9;
+  --ao-text-secondary: #94a3b8;
+  --ao-text-muted: #64748b;
+  --ao-bg-app: #090b11;
+  --ao-bg-sidebar: #0f121a;
+  --ao-bg-header: #0f121a;
+  --ao-border: rgba(255, 255, 255, 0.06);
+  --ao-border-strong: rgba(255, 255, 255, 0.1);
+  --ao-success-bg: rgba(16, 185, 129, 0.14);
+  --ao-warning-bg: rgba(245, 158, 11, 0.14);
+  --ao-danger-bg: rgba(239, 68, 68, 0.14);
+  --ao-info-bg: rgba(59, 130, 246, 0.14);
+  --el-bg-color: #141822;
+  --el-bg-color-overlay: #191e2b;
+  --el-fill-color-blank: #141822;
+  --el-text-color-primary: #f1f5f9;
+  --el-text-color-regular: #cbd5e1;
+  --el-text-color-secondary: #94a3b8;
+  --el-text-color-placeholder: #475569;
+  --el-border-color: rgba(255, 255, 255, 0.08);
+  --el-border-color-light: rgba(255, 255, 255, 0.05);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.03);
+  --el-fill-color-light: rgba(255, 255, 255, 0.05);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.03);
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+
+  --ao-panel-bg: #131722;
+  --ao-panel-header-bg: #0f121a;
+  --ao-panel-footer-bg: #0f121a;
+  --ao-panel-border: rgba(255, 255, 255, 0.06);
+  --ao-panel-border-strong: rgba(129, 140, 248, 0.22);
+  --ao-panel-shadow: rgba(0, 0, 0, 0.45);
+  --ao-panel-btn-bg: #191e2b;
+  --ao-panel-input-bg: #0c0f16;
+  --ao-messages-bg: #090b11;
+  --ao-conv-bg: #141822;
+  --ao-conv-border: rgba(255, 255, 255, 0.06);
+  --ao-conv-active-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(59, 130, 246, 0.08));
+  --ao-conv-overlay-bg: linear-gradient(90deg, transparent 0%, rgba(9, 11, 17, 0.98) 35%);
+  --ao-conv-action-bg: #191e2b;
+  --ao-composer-bg: #0c0f16;
+  --ao-composer-border: rgba(255, 255, 255, 0.08);
+  --ao-chip-border: rgba(129, 140, 248, 0.28);
+  --ao-surface: #141822;
+  --ao-surface-muted: #0c0f16;
+  --ao-surface-border: rgba(255, 255, 255, 0.08);
+  --ao-surface-border-accent: rgba(129, 140, 248, 0.22);
+
+  --ao-chat-bubble-ai-bg: linear-gradient(180deg, #181d2a 0%, #12151f 100%);
+  --ao-chat-bubble-ai-text: #f1f5f9;
+  --ao-retrieval-source-bg: #181d2a;
+  --ao-retrieval-inner-bg: rgba(0, 0, 0, 0.3);
+  --ao-thinking-panel-bg: rgba(24, 29, 42, 0.96);
+  --ao-tool-card-bg: #181d2a;
+  --ao-tool-card-running-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(24, 29, 42, 0.95));
+  --ao-qa-q-color: #fda4af;
+  --ao-qa-a-color: #2dd4bf;
+}
+
+/* ── Theme Presets Dark-mode Adaptations ── */
+html.dark[data-theme='slate'] {
+  --theme-primary: #cbd5e1;
+  --theme-primary-hover: #e2e8f0;
+  --theme-primary-gradient: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 50%, #f1f5f9 100%);
+  --theme-primary-muted: rgba(203, 213, 225, 0.16);
+}
+
+html.dark[data-theme='teal'] {
+  --theme-primary: #2dd4bf;
+  --theme-primary-hover: #5eead4;
+  --theme-primary-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%);
+  --theme-primary-muted: rgba(45, 212, 191, 0.16);
+}
+
+html.dark[data-theme='violet'] {
+  --theme-primary: #a78bfa;
+  --theme-primary-hover: #c7d2fe;
+  --theme-primary-gradient: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%);
+  --theme-primary-muted: rgba(167, 139, 250, 0.16);
+}
+
+html.dark[data-theme='emerald'] {
+  --theme-primary: #34d399;
+  --theme-primary-hover: #6ee7b7;
+  --theme-primary-gradient: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+  --theme-primary-muted: rgba(52, 211, 153, 0.16);
+}
+
+html.dark[data-theme='rose'] {
+  --theme-primary: #fb7185;
+  --theme-primary-hover: #fecdd3;
+  --theme-primary-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 50%, #fb7185 100%);
+  --theme-primary-muted: rgba(251, 113, 133, 0.16);
+}

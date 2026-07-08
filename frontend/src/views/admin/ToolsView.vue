@@ -2,17 +2,22 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/common/PageHeader.vue'
+import TablePagination from '@/components/common/TablePagination.vue'
+import { usePagination } from '@/composables/usePagination'
 import { confirmAction } from '@/utils/confirm'
 import { fetchTools, toggleToolStatus } from '@/api/admin'
 
 const tools = ref<Array<{ name: string; description: string; type: string; status: string }>>([])
 const loading = ref(false)
+const { page, size, total } = usePagination(10)
 
 async function load() {
   loading.value = true
   try {
-    tools.value = await fetchTools()
-  } catch (error) {
+    const data = await fetchTools({ page: page.value, size: size.value })
+    tools.value = data.records
+    total.value = data.total
+  } catch {
     ElMessage.error('加载工具列表失败')
   } finally {
     loading.value = false
@@ -85,6 +90,7 @@ onMounted(load)
           </template>
         </el-table-column>
       </el-table>
+      <TablePagination v-model:page="page" v-model:size="size" :total="total" @change="load" />
     </el-card>
   </div>
 </template>

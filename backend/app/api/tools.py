@@ -1,9 +1,10 @@
 """backend/app/api/tools.py"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.common.pagination import clamp_page, page_result, slice_page
 from app.common.response import success
 from app.core.deps import require_permission
 from app.db.session import get_db
@@ -19,8 +20,16 @@ class ToolUpdateRequest(BaseModel):
 
 
 @router.get("")
-def list_tool_items(user: User = Depends(require_permission("tool:manage")), db: Session = Depends(get_db)):
-    return success(ToolService(db).list_tools())
+def list_tool_items(
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
+    user: User = Depends(require_permission("tool:manage")),
+    db: Session = Depends(get_db),
+):
+    page, size = clamp_page(page, size)
+    all_items = ToolService(db).list_tools()
+    records, total = slice_page(all_items, page, size)
+    return success(page_result(records, total))
 
 
 @router.put("/{name}")

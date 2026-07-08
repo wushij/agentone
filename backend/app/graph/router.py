@@ -16,7 +16,7 @@ def route_after_researcher(state: AgentState) -> RouteAfterResearcher:
         return "reviewer"
 
     intent = state.get("intent") or "chat"
-    if intent == "chat":
+    if intent in ("chat", "prompt_engineer"):
         return "reviewer"
 
     tool_name = state.get("tool_name") or ""

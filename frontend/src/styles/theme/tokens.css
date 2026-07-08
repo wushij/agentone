@@ -1,0 +1,117 @@
+:root {
+  /* Theme — indigo (default) */
+  --theme-primary: #4f46e5;
+  --theme-primary-hover: #4338ca;
+  --theme-primary-gradient: linear-gradient(135deg, #4f46e5 0%, #3b82f6 50%, #8b5cf6 100%);
+  --theme-primary-muted: rgba(79, 70, 229, 0.12);
+  --theme-focus: #3b82f6;
+  --theme-brand-accent: rgba(240, 212, 212, 0.72);
+  --theme-bg: #f3f5f8;
+  --theme-sidebar-bg: #ffffff;
+  --theme-border: #e2e8f0;
+  --theme-text-base: #0f172a;
+  --theme-text-secondary: #64748b;
+
+  /* Typography */
+  --ao-text-primary: #0f172a;
+  --ao-text-secondary: #64748b;
+  --ao-text-muted: #94a3b8;
+
+  /* Surfaces */
+  --ao-bg-app: #f3f5f8;
+  --ao-bg-sidebar: rgba(255, 255, 255, 0.72);
+  --ao-bg-header: rgba(255, 255, 255, 0.82);
+  --ao-border: rgba(148, 163, 184, 0.15);
+  --ao-border-strong: rgba(148, 163, 184, 0.22);
+
+  /* Layout */
+  --ao-header-height: 60px;
+  --ao-sidebar-width: 240px;
+
+  /* Radius */
+  --ao-radius-sm: 6px;
+  --ao-radius: 8px;
+  --ao-radius-lg: 12px;
+  --ao-radius-xl: 16px;
+  --ao-radius-2xl: 20px;
+  --ao-radius-3xl: 24px;
+  --ao-radius-full: 9999px;
+
+  /* Chat send — 固定靛蓝紫，不随石墨主题变灰 */
+  --ao-chat-send-gradient: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%);
+  --ao-chat-send-gradient-disabled: linear-gradient(135deg, #a5b4fc 0%, #c4b5fd 100%);
+  --ao-chat-send-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+
+  /* Status */
+  --ao-success: #22c55e;
+  --ao-success-bg: #ecfdf5;
+  --ao-warning: #f59e0b;
+  --ao-warning-bg: #fffbeb;
+  --ao-danger: #ef4444;
+  --ao-danger-bg: #fef2f2;
+  --ao-info: #3b82f6;
+  --ao-info-bg: #eff6ff;
+
+  /* Shadows */
+  --ao-shadow-sm: 0 4px 14px rgba(99, 102, 241, 0.12);
+  --ao-shadow-md: 0 10px 30px rgba(100, 120, 150, 0.08);
+  --ao-shadow-lg: 0 20px 50px rgba(100, 120, 150, 0.12);
+  --ao-shadow-primary: 0 4px 14px rgba(99, 102, 241, 0.25);
+  --ao-shadow-primary-hover: 0 8px 24px rgba(99, 102, 241, 0.45);
+
+  /* Chat panel tokens */
+  --ao-panel-bg: #ffffff;
+  --ao-panel-header-bg: rgba(255, 255, 255, 0.98);
+  --ao-panel-footer-bg: rgba(255, 255, 255, 0.96);
+  --ao-panel-border: rgba(226, 232, 240, 0.9);
+  --ao-panel-border-strong: rgba(99, 102, 241, 0.14);
+  --ao-panel-shadow: rgba(79, 70, 229, 0.05);
+  --ao-panel-btn-bg: rgba(255, 255, 255, 0.92);
+  --ao-panel-input-bg: rgba(248, 250, 252, 0.9);
+  --ao-messages-bg: #fafbfd;
+  --ao-conv-bg: #ffffff;
+  --ao-conv-border: #eef2ff;
+  --ao-conv-active-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.07), rgba(59, 130, 246, 0.04));
+  --ao-conv-overlay-bg: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.95) 35%);
+  --ao-conv-action-bg: rgba(255, 255, 255, 0.9);
+  --ao-composer-bg: #f8fafc;
+  --ao-composer-border: #e2e8f0;
+  --ao-chip-border: rgba(99, 102, 241, 0.14);
+
+  /* Component surfaces */
+  --ao-surface: #ffffff;
+  --ao-surface-muted: #f8fafc;
+  --ao-surface-border: #e2e8f0;
+  --ao-surface-border-accent: #e0e7ff;
+
+  /* Chat bubbles & cards */
+  --ao-chat-bubble-ai-bg: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  --ao-chat-bubble-ai-text: #1e293b;
+  --ao-retrieval-source-bg: rgba(255, 255, 255, 0.55);
+  --ao-retrieval-inner-bg: rgba(15, 23, 42, 0.03);
+  --ao-thinking-panel-bg: rgba(255, 255, 255, 0.72);
+  --ao-tool-card-bg: rgba(255, 255, 255, 0.75);
+  --ao-tool-card-running-bg: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(255, 255, 255, 0.85));
+  --ao-qa-q-color: #dc2626;
+  --ao-qa-a-color: #0d9488;
+
+  /* Element Plus bridge */
+  --el-color-primary: var(--theme-primary);
+  --el-color-primary-light-3: #818cf8;
+  --el-color-primary-light-5: #a5b4fc;
+  --el-color-primary-light-7: #c7d2fe;
+  --el-color-primary-light-9: #eef2ff;
+  --el-color-primary-dark-2: var(--theme-primary-hover);
+  --el-border-radius-base: var(--ao-radius);
+  --el-border-radius-small: var(--ao-radius-sm);
+  --el-border-radius-round: var(--ao-radius-full);
+  --el-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --el-text-color-primary: var(--ao-text-primary);
+  --el-text-color-regular: #475569;
+  --el-text-color-secondary: var(--ao-text-secondary);
+  --el-text-color-placeholder: var(--ao-text-muted);
+  --el-bg-color: #ffffff;
+  --el-fill-color-blank: rgba(255, 255, 255, 0.82);
+  --el-border-color: var(--ao-border);
+  --el-border-color-light: rgba(148, 163, 184, 0.1);
+}

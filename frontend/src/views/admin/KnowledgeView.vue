@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Edit, Delete, FolderOpened, Document, Cpu, Compass, HelpFilled, Check } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, FolderOpened, Document, Cpu, Compass, HelpFilled, Check, View } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import GlassCard from '@/components/common/GlassCard.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import KnowledgePreviewDialog from '@/components/admin/KnowledgePreviewDialog.vue'
 import { confirmDelete } from '@/utils/confirm'
 import {
-  fetchKnowledge,
+  fetchAllKnowledge,
   createKnowledge,
   updateKnowledge,
   deleteKnowledge,
-  fetchFiles,
-  fetchModels,
+  fetchAllFiles,
+  fetchAllModels,
   type KnowledgeItem,
   type FileItem,
   type ModelItem
@@ -25,6 +26,9 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const activeTab = ref('basic')
+const previewVisible = ref(false)
+const previewKb = ref<KnowledgeItem | null>(null)
+const previewDraft = ref<Partial<KnowledgeItem> | null>(null)
 
 const form = ref<Partial<KnowledgeItem>>({
   id: '',
@@ -33,6 +37,7 @@ const form = ref<Partial<KnowledgeItem>>({
   fileIds: [],
   chunkSize: 500,
   chunkOverlap: 50,
+  segmentDelimiter: 'paragraph',
   embeddingModel: '',
   retrievalMode: 'hybrid',
   topK: 3,
@@ -42,15 +47,15 @@ const form = ref<Partial<KnowledgeItem>>({
 async function loadData() {
   loading.value = true
   try {
-    const [kbRes, fileRes, modelRes] = await Promise.all([
-      fetchKnowledge(),
-      fetchFiles(),
-      fetchModels()
+    const [kbList, fileRes, modelRes] = await Promise.all([
+      fetchAllKnowledge(),
+      fetchAllFiles(),
+      fetchAllModels()
     ])
-    items.value = kbRes
+    items.value = kbList
     files.value = fileRes
     models.value = modelRes
-  } catch (error) {
+  } catch {
     ElMessage.error('数据加载失败')
   } finally {
     loading.value = false
@@ -67,7 +72,8 @@ function openCreate() {
     fileIds: [],
     chunkSize: 500,
     chunkOverlap: 50,
-    embeddingModel: models.value[0]?.name || 'text-embedding-3-small',
+    segmentDelimiter: 'paragraph',
+    embeddingModel: models.value[0]?.modelName || 'text-embedding-3-small',
     retrievalMode: 'hybrid',
     topK: 3,
     scoreThreshold: 0.5
@@ -78,7 +84,7 @@ function openCreate() {
 function openEdit(kb: KnowledgeItem) {
   isEdit.value = true
   activeTab.value = 'basic'
-  form.value = { ...kb }
+  form.value = { ...kb, segmentDelimiter: kb.segmentDelimiter || 'paragraph' }
   dialogVisible.value = true
 }
 
@@ -117,6 +123,22 @@ function getFilesForKb(kb: KnowledgeItem): FileItem[] {
   return files.value.filter((f) => kb.fileIds.includes(f.id))
 }
 
+function openPreview(kb: KnowledgeItem) {
+  previewKb.value = kb
+  previewDraft.value = null
+  previewVisible.value = true
+}
+
+function openDraftPreview() {
+  if (!form.value.fileIds?.length) {
+    ElMessage.warning('请先选择关联文件')
+    return
+  }
+  previewKb.value = null
+  previewDraft.value = { ...form.value }
+  previewVisible.value = true
+}
+
 onMounted(loadData)
 </script>
 
@@ -124,12 +146,15 @@ onMounted(loadData)
   <div class="view-page">
     <PageHeader title="知识库管理" subtitle="基于 Dify/Coze 架构的多仓 RAG 检索模型，支持独立向量配置与混合检索策略。">
       <template #action>
-        <el-button type="primary" round :icon="Plus" @click="openCreate">新建知识库</el-button>
+        <el-button @click="openCreate">
+          <el-icon class="btn-icon-plus"><Plus /></el-icon>
+          新建知识库
+        </el-button>
       </template>
     </PageHeader>
 
     <div v-loading="loading">
-      <div v-if="items.length" class="kb-grid">
+      <div v-if="items.length > 0" class="kb-grid">
         <GlassCard v-for="kb in items" :key="kb.id" class="kb-card">
           <div class="kb-header">
             <div class="kb-icon">
@@ -152,6 +177,15 @@ onMounted(loadData)
           </div>
 
           <div class="kb-actions table-actions">
+            <el-button
+              size="small"
+              class="action-btn action-btn--edit"
+              :icon="View"
+              :disabled="!kb.fileIds.length"
+              @click="openPreview(kb)"
+            >
+              预览
+            </el-button>
             <el-button size="small" class="action-btn action-btn--primary" :icon="Edit" @click="openEdit(kb)">
               配置参数
             </el-button>
@@ -161,7 +195,11 @@ onMounted(loadData)
           </div>
         </GlassCard>
       </div>
-      <EmptyState v-else title="暂无知识库" description="点击右上角「新建知识库」创建您的第一个 RAG 知识库。" />
+      <EmptyState
+        v-else-if="!loading"
+        title="暂无知识库"
+        description="点击右上角「新建知识库」创建您的第一个 RAG 知识库。"
+      />
     </div>
 
     <el-dialog
@@ -210,20 +248,40 @@ onMounted(loadData)
         <el-tab-pane label="索引与检索设置" name="retrieval">
           <el-form label-position="top">
             <div class="param-row">
+              <el-form-item label="分段标识符" class="flex-1" required>
+                <el-select v-model="form.segmentDelimiter" placeholder="选择分段方式" class="w-full">
+                  <el-option label="换行" value="newline" />
+                  <el-option label="双换行（段落）" value="paragraph" />
+                  <el-option label="不分段（仅按长度切分）" value="none" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="分段最大长度" class="flex-1" required>
+                <el-input-number v-model="form.chunkSize" :min="100" :max="2000" :step="50" class="w-full" />
+              </el-form-item>
+            </div>
+
+            <div class="param-row">
               <el-form-item label="Embedding 模型" class="flex-1">
                 <el-select v-model="form.embeddingModel" placeholder="选择嵌入模型" class="w-full">
                   <el-option
                     v-for="m in models"
-                    :key="m.name"
-                    :label="m.name"
-                    :value="m.name"
+                    :key="m.modelName"
+                    :label="m.modelName"
+                    :value="m.modelName"
                   />
                   <el-option label="text-embedding-3-small" value="text-embedding-3-small" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="切片大小 (Chunk)" class="flex-1">
-                <el-input-number v-model="form.chunkSize" :min="100" :max="2000" :step="100" class="w-full" />
+              <el-form-item label="分段重叠 (Overlap)" class="flex-1">
+                <el-input-number v-model="form.chunkOverlap" :min="0" :max="500" :step="10" class="w-full" />
               </el-form-item>
+            </div>
+
+            <div class="preview-inline-bar">
+              <span>按当前分段规则实时预览文档切片效果</span>
+              <el-button size="small" class="action-btn action-btn--edit" :icon="View" @click="openDraftPreview">
+                预览分段
+              </el-button>
             </div>
 
             <el-form-item label="检索模式">
@@ -311,6 +369,12 @@ onMounted(loadData)
         </div>
       </template>
     </el-dialog>
+
+    <KnowledgePreviewDialog
+      v-model:visible="previewVisible"
+      :kb="previewKb"
+      :draft="previewDraft"
+    />
   </div>
 </template>
 
@@ -378,8 +442,22 @@ onMounted(loadData)
 .kb-actions {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   border-top: 1px solid var(--ao-border);
   padding-top: 14px;
+}
+.preview-inline-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--ao-panel-border);
+  background: var(--ao-surface-muted);
+  font-size: 12px;
+  color: var(--ao-text-secondary);
 }
 .param-row {
   display: flex;

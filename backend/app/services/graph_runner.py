@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
@@ -16,16 +18,32 @@ from app.graph.events import (
     TokenUsage,
     done_event,
     error_event,
+    step_event,
     token_event,
     tool_end_event,
     tool_start_event,
     usage_event,
 )
 from app.graph.nodes.summarizer_node import stream_summarizer_tokens
+from app.services.rag_service import RagService, format_kb_retrieve_answer
 from app.graph.router import route_after_researcher
 from app.graph.state import AgentState, init_state
 
 AgentStatusCallback = Callable[[AgentStatusEvent], Awaitable[None] | None]
+
+
+async def _stream_text_as_tokens(
+    ctx: StreamContext,
+    text: str,
+    *,
+    chunk_size: int = 12,
+    pause_s: float = 0.022,
+) -> AsyncIterator[SseEvent]:
+    """Yield SSE tokens with pacing so the client can paint incrementally."""
+    for i in range(0, len(text), chunk_size):
+        delta = text[i : i + chunk_size]
+        yield token_event(ctx, delta)
+        await asyncio.sleep(pause_s)
 
 
 def _merge_state(state: AgentState, update: dict[str, Any]) -> AgentState:
@@ -44,6 +62,65 @@ def _thread_config(session_id: str) -> dict:
     return {"configurable": {"thread_id": session_id or str(uuid.uuid4())}}
 
 
+def _next_graph_step(node_name: str, state: AgentState) -> str | None:
+    if node_name == "planner":
+        return "researcher"
+    if node_name == "researcher":
+        intent = state.get("intent") or "chat"
+        if intent == "chat":
+            return "reviewer"
+        if intent == "prompt_engineer":
+            return "reviewer"
+        tool_name = state.get("tool_name") or ""
+        if tool_name:
+            return "tool"
+        return "reviewer"
+    if node_name == "tool":
+        return "reviewer"
+    if node_name in {"reviewer", "unsupported", "error_handler"}:
+        return "summarizer"
+    return None
+
+
+def _step_detail(node_name: str, state: AgentState) -> tuple[str, str]:
+    """Return (detail, tool) for pipeline step display."""
+    meta = state.get("metadata") or {}
+    if node_name == "planner":
+        plan = str(meta.get("plan") or "").strip()
+        if plan:
+            return (plan, "")
+        return ("完成意图分析", "")
+    if node_name == "researcher":
+        intent = state.get("intent") or meta.get("detected_intent") or "chat"
+        labels = {
+            "chat": "普通对话",
+            "calculator": "计算器",
+            "search": "搜索",
+            "file": "文件",
+            "database": "数据库",
+            "prompt_engineer": "AI 编程提示词工程",
+        }
+        parts: list[str] = []
+        if meta.get("rag_context"):
+            parts.append("知识库上下文已注入")
+        parts.append(f"识别意图：{labels.get(intent, intent)}")
+        return ("；".join(parts), "")
+    if node_name == "tool":
+        name = state.get("tool_name") or ""
+        result = str(state.get("tool_result") or "").strip()
+        if result:
+            return (result, name)
+        return (name or "工具执行", name)
+    if node_name == "reviewer":
+        review = str(meta.get("review") or "").strip()
+        if review:
+            return (review, "")
+        return ("审阅通过", "")
+    if node_name == "summarizer":
+        return ("流式生成最终回答", "")
+    return ("", "")
+
+
 class GraphRunner:
     def __init__(self, on_agent_status: AgentStatusCallback | None = None):
         self.graph = get_compiled_graph()
@@ -58,7 +135,11 @@ class GraphRunner:
         tool: str = "",
         elapsed_ms: int = 0,
         error: str = "",
+        detail: str = "",
+        label: str = "",
     ) -> None:
+        from app.graph.events import NODE_LABELS
+
         event = AgentStatusEvent(
             conversation_id=ctx.conversation_id,
             node=node,
@@ -66,6 +147,8 @@ class GraphRunner:
             tool=tool,
             elapsed_ms=elapsed_ms,
             error=error,
+            detail=detail,
+            label=label or NODE_LABELS.get(node, node),
         )
         if self.on_agent_status:
             result = self.on_agent_status(event)
@@ -107,6 +190,8 @@ class GraphRunner:
                             "tool": tool,
                             "elapsedMs": elapsed_ms,
                             "error": error,
+                            "detail": detail,
+                            "label": event.label,
                         },
                     },
                 )
@@ -158,62 +243,113 @@ class GraphRunner:
         history: list | None = None,
         enable_tools: bool = True,
         model_id: str | None = None,
-        kb_id: str | None = None,
+        kb_ids: list[str] | None = None,
+        kb_mode: str = "generate",
     ) -> AsyncIterator[SseEvent]:
         msg_id = message_id or str(uuid.uuid4())
         conv_id = conversation_id or session_id or str(uuid.uuid4())
         thread_id = session_id or conv_id
         ctx = StreamContext(conversation_id=conv_id, message_id=msg_id, user_id=user_id)
+        original_query = user_input
+        resolved_kb_ids = [str(x).strip() for x in (kb_ids or []) if str(x).strip()]
 
         metadata: dict[str, Any] = {"enable_tools": enable_tools}
         if model_id:
             metadata["model_id"] = model_id
+        if resolved_kb_ids:
+            metadata["kb_ids"] = resolved_kb_ids
 
-        # RAG Knowledge Base Retrieval & Injection
-        if kb_id:
+        yield step_event(ctx, "prepare", "running")
+        yield step_event(ctx, "prepare", "success")
+
+        # Knowledge base: retrieve-only mode — 有命中则直出原文，无命中则 fallback 大模型
+        if resolved_kb_ids and kb_mode == "retrieve":
             try:
-                from app.db.session import SessionLocal
-                from app.services.model_service import ModelService
-                from app.services.rag_service import RagService
-                from app.api.knowledge import _load_kb
+                yield step_event(ctx, "rag", "running")
+                await self._emit_status(ctx, "rag", "running")
+                rag_started = time.perf_counter()
+                kb_chunks = await RagService.fetch_kb_chunks_multi(resolved_kb_ids, original_query)
+                rag_ms = int((time.perf_counter() - rag_started) * 1000)
+                if kb_chunks:
+                    retrieve_limit = 5 if len(resolved_kb_ids) > 1 else 1
+                    kb_chunks = kb_chunks[:retrieve_limit]
+                    hit = len(kb_chunks)
+                    kb_detail = (
+                        f"知识库检索命中 {hit} 条（{len(resolved_kb_ids)} 个库）"
+                        if len(resolved_kb_ids) > 1
+                        else f"知识库检索命中 {hit} 条"
+                    )
+                    yield step_event(
+                        ctx,
+                        "rag",
+                        "success",
+                        elapsed_ms=rag_ms,
+                        detail=kb_detail,
+                    )
+                    await self._emit_status(
+                        ctx, "rag", "success", elapsed_ms=rag_ms, detail=f"命中 {hit} 条"
+                    )
+                    answer = format_kb_retrieve_answer(original_query, kb_chunks)
+                    yield step_event(ctx, "format", "running")
+                    completion_tokens = 0
+                    async for event in _stream_text_as_tokens(ctx, answer):
+                        completion_tokens += max(1, len(event.data.get("delta", "")) // 4)
+                        yield event
+                    yield step_event(ctx, "format", "success")
+                    yield usage_event(ctx, TokenUsage(prompt_tokens=0, completion_tokens=completion_tokens))
+                    yield done_event(ctx, "stop")
+                    return
+                yield step_event(
+                    ctx,
+                    "rag",
+                    "success",
+                    elapsed_ms=rag_ms,
+                    detail="检索无命中，改由大模型作答",
+                )
+                await self._emit_status(
+                    ctx, "rag", "success", elapsed_ms=rag_ms, detail="检索无命中，改由大模型作答"
+                )
+                metadata["rag_empty"] = True
+            except Exception as exc:  # noqa: BLE001
+                yield step_event(ctx, "rag", "error", error=str(exc))
+                yield error_event(ctx, "RAG_FAILED", str(exc))
+                yield done_event(ctx, "error")
+                return
 
-                db = SessionLocal()
-                try:
-                    kb_list = _load_kb()
-                    kb_cfg = next((k for k in kb_list if k["id"] == kb_id), None)
-                    if kb_cfg:
-                        top_k = int(kb_cfg.get("topK", 3))
-                        score_threshold = float(kb_cfg.get("scoreThreshold", 0.5))
-
-                        model_service = ModelService(db)
-                        default_model = model_service.get_default()
-                        api_key = default_model.api_key if default_model else None
-                        base_url = default_model.base_url if default_model else None
-                        model_name = default_model.model_name if default_model else "text-embedding-3-small"
-
-                        chunks = await RagService.query_kb(
-                            kb_id=kb_id,
-                            query=user_input,
-                            top_k=top_k,
-                            score_threshold=score_threshold,
-                            api_key=api_key,
-                            base_url=base_url,
-                            model=model_name
-                        )
-                        if chunks:
-                            ref_text = "\n".join([f"{idx+1}. {c['text']}" for idx, c in enumerate(chunks)])
-                            metadata["rag_context"] = ref_text
-                            user_input = (
-                                "【知识库参考资料】：\n"
-                                f"{ref_text}\n"
-                                "-----------------\n"
-                                "请结合上述参考资料回答用户问题。如果参考资料中没有相关信息，请按您默认的通用常识回答，并告知用户在参考资料中未检索到内容。\n\n"
-                                f"用户问题：{user_input}"
-                            )
-                finally:
-                    db.close()
+        # RAG Knowledge Base Retrieval & Injection (generate mode)
+        if resolved_kb_ids:
+            try:
+                yield step_event(ctx, "rag", "running")
+                rag_started = time.perf_counter()
+                kb_chunks = await RagService.fetch_kb_chunks_multi(resolved_kb_ids, original_query)
+                rag_ms = int((time.perf_counter() - rag_started) * 1000)
+                if kb_chunks:
+                    ref_text = "\n\n".join(
+                        [
+                            f"【资料 {idx} · {c.get('kbName', '知识库')}】\n{c['text']}"
+                            for idx, c in enumerate(kb_chunks, 1)
+                        ]
+                    )
+                    metadata["rag_context"] = ref_text
+                    user_input = original_query
+                kb_detail = (
+                    f"知识库检索命中 {len(kb_chunks or [])} 条（{len(resolved_kb_ids)} 个库）"
+                    if len(resolved_kb_ids) > 1
+                    else (
+                        f"知识库检索命中 {len(kb_chunks or [])} 条"
+                        if kb_chunks
+                        else "检索无命中，改由大模型作答"
+                    )
+                )
+                yield step_event(
+                    ctx,
+                    "rag",
+                    "success",
+                    elapsed_ms=rag_ms,
+                    detail=kb_detail,
+                )
             except Exception:
-                pass
+                yield step_event(ctx, "rag", "error", error="知识库检索失败，将直接作答")
 
         state = init_state(
             user_input=user_input,
@@ -227,11 +363,32 @@ class GraphRunner:
         config = _thread_config(thread_id)
 
         try:
-            # 顺序执行多代理工作流各节点 (planner -> researcher -> tool -> reviewer)
+            yield step_event(ctx, "planner", "running")
+            node_started: dict[str, float] = {"planner": time.perf_counter()}
+
             async for update in self.graph.astream(state, config=config, stream_mode="updates"):
                 for node_name, node_output in update.items():
                     state = _merge_state(state, node_output)
-                    await self._emit_status(ctx, node_name, "running")
+                    elapsed = 0
+                    if node_name in node_started:
+                        elapsed = int((time.perf_counter() - node_started[node_name]) * 1000)
+                    detail, tool_name = _step_detail(node_name, state)
+                    yield step_event(
+                        ctx,
+                        node_name,
+                        "success",
+                        elapsed_ms=elapsed,
+                        detail=detail,
+                        tool=tool_name,
+                    )
+                    await self._emit_status(
+                        ctx,
+                        node_name,
+                        "success",
+                        elapsed_ms=elapsed,
+                        detail=detail,
+                        tool=tool_name,
+                    )
 
                     if node_name == "tool":
                         tool_name = state.get("tool_name") or "tool"
@@ -264,14 +421,17 @@ class GraphRunner:
                             )
                             await self._emit_status(ctx, "tool", "success", tool=tool_name)
 
-                    await self._emit_status(ctx, node_name, "success")
+                    next_node = _next_graph_step(node_name, state)
+                    if next_node:
+                        node_started[next_node] = time.perf_counter()
+                        yield step_event(ctx, next_node, "running")
 
             if state.get("error") and not state.get("final_answer"):
                 yield error_event(ctx, "TOOL_FAILED", state["error"])
                 yield done_event(ctx, "error")
                 return
 
-            # 调用 Summarizer Agent 汇总最终输出并流式生成 tokens
+            yield step_event(ctx, "summarizer", "running")
             await self._emit_status(ctx, "summarizer", "running")
             completion_tokens = 0
             chunks = []
@@ -279,7 +439,8 @@ class GraphRunner:
                 completion_tokens += max(1, len(delta) // 4)
                 chunks.append(delta)
                 yield token_event(ctx, delta)
-            await self._emit_status(ctx, "summarizer", "success")
+            await self._emit_status(ctx, "summarizer", "success", detail="回答生成完成")
+            yield step_event(ctx, "summarizer", "success", detail="回答生成完成")
 
             final_answer = "".join(chunks)
             state["final_answer"] = final_answer

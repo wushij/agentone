@@ -28,7 +28,7 @@ class FileTool(BaseTool):
 
         db = SessionLocal()
         try:
-            files = FileService(db).list_files(int(user_id))
+            files, _ = FileService(db).list_files(int(user_id), page=1, size=500)
             if not files:
                 return ToolResult(
                     output="当前用户暂无已上传文件，请先在文件中心上传。",

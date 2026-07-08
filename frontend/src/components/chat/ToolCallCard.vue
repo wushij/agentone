@@ -42,7 +42,7 @@ defineProps<{
 <style scoped>
 .tool-card {
   border-radius: var(--ao-radius-lg);
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--ao-tool-card-bg);
   border: 1px solid var(--ao-border);
   padding: 12px 14px;
   box-shadow: var(--ao-shadow-sm);
@@ -51,7 +51,7 @@ defineProps<{
 
 .tool-card--running {
   border-color: rgba(59, 130, 246, 0.25);
-  background: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(255, 255, 255, 0.85));
+  background: var(--ao-tool-card-running-bg);
 }
 
 .tool-card--done {

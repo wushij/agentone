@@ -27,7 +27,7 @@ class ConversationItem(BaseModel):
 
 
 class ConversationListResponse(BaseModel):
-    items: list[ConversationItem]
+    records: list[ConversationItem]
     total: int
 
     model_config = {"populate_by_name": True, "by_alias": True}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.models.prompt import Prompt
@@ -12,10 +12,16 @@ from app.utils.prompt_loader import clear_prompt_cache
 
 _PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 _TYPE_MAP = {
+    "persona": "persona",
     "system": "system",
     "planner": "planner",
     "tool": "tool",
     "summary": "summary",
+    "prompt_engineer": "prompt_engineer",
+}
+_LEGACY_MARKERS: dict[str, tuple[str, ...]] = {
+    "system": ("你是 AgentOne 企业级 AI 智能体助手",),
+    "summary": ("对本轮对话进行简洁总结",),
 }
 
 
@@ -23,8 +29,15 @@ class PromptService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_prompts(self) -> list[Prompt]:
-        return list(self.db.scalars(select(Prompt).order_by(Prompt.name)).all())
+    def list_prompts(self, *, page: int = 1, size: int = 10) -> tuple[list[Prompt], int]:
+        count_stmt = select(func.count()).select_from(Prompt)
+        total = int(self.db.scalar(count_stmt) or 0)
+        rows = list(
+            self.db.scalars(
+                select(Prompt).order_by(Prompt.name).offset((page - 1) * size).limit(size)
+            ).all()
+        )
+        return rows, total
 
     def get_by_name(self, name: str) -> Prompt | None:
         return self.db.scalar(select(Prompt).where(Prompt.name == name))
@@ -71,10 +84,23 @@ class PromptService:
         clear_prompt_cache(name)
         return row
 
-    def list_history(self, name: str) -> list[PromptHistory]:
+    def list_history(self, name: str, *, page: int = 1, size: int = 10) -> tuple[list, int]:
         from app.models.prompt_history import PromptHistory
-        stmt = select(PromptHistory).where(PromptHistory.prompt_name == name).order_by(PromptHistory.version.desc())
-        return list(self.db.scalars(stmt).all())
+
+        count_stmt = (
+            select(func.count())
+            .select_from(PromptHistory)
+            .where(PromptHistory.prompt_name == name)
+        )
+        total = int(self.db.scalar(count_stmt) or 0)
+        stmt = (
+            select(PromptHistory)
+            .where(PromptHistory.prompt_name == name)
+            .order_by(PromptHistory.version.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        return list(self.db.scalars(stmt).all()), total
 
     def rollback(self, name: str, version: int) -> Prompt | None:
         from app.models.prompt_history import PromptHistory
@@ -115,9 +141,13 @@ class PromptService:
         return row
 
     def delete(self, name: str) -> bool:
+        if name in _TYPE_MAP:
+            raise ValueError("内置 Prompt 不可删除，请使用停用或文件同步")
         row = self.get_by_name(name)
         if row is None:
             return False
+        if row.type != "custom":
+            raise ValueError("仅自定义 Prompt 可删除")
         self.db.delete(row)
         self.db.commit()
         clear_prompt_cache(name)
@@ -133,11 +163,46 @@ class PromptService:
             "updatedAt": row.updated_at.isoformat() if row.updated_at else None,
         }
 
-    def seed_defaults(self) -> None:
-        if self.list_prompts():
-            return
+    def _read_file_content(self, name: str) -> str:
+        path = _PROMPTS_DIR / f"{name}.md"
+        if path.exists():
+            return path.read_text(encoding="utf-8").strip()
+        return f"# {name} prompt"
+
+    def ensure_builtin_prompts(self, sync_files: bool = True) -> list[str]:
+        """补齐内置 Prompt；若本地 .md 比库内更新则同步入库。"""
+        changed: list[str] = []
         for name, ptype in _TYPE_MAP.items():
             path = _PROMPTS_DIR / f"{name}.md"
-            content = path.read_text(encoding="utf-8").strip() if path.exists() else f"# {name} prompt"
-            self.db.add(Prompt(name=name, type=ptype, content=content, version=1, enabled=1))
-        self.db.commit()
+            file_content = self._read_file_content(name)
+            row = self.get_by_name(name)
+            if row is None:
+                self.db.add(
+                    Prompt(name=name, type=ptype, content=file_content, version=1, enabled=1)
+                )
+                changed.append(name)
+                continue
+            if not sync_files or not path.exists():
+                continue
+            stale = row.content.strip() != file_content and (
+                name in _LEGACY_MARKERS
+                and any(marker in row.content for marker in _LEGACY_MARKERS[name])
+            )
+            content_outdated = row.content.strip() != file_content
+            if stale or content_outdated:
+                row.content = file_content
+                row.version = (row.version or 1) + 1
+                changed.append(name)
+        if changed:
+            self.db.commit()
+            for name in changed:
+                clear_prompt_cache(name)
+        return changed
+
+    def seed_defaults(self) -> None:
+        if not self.db.scalar(select(func.count()).select_from(Prompt)):
+            for name, ptype in _TYPE_MAP.items():
+                content = self._read_file_content(name)
+                self.db.add(Prompt(name=name, type=ptype, content=content, version=1, enabled=1))
+            self.db.commit()
+        self.ensure_builtin_prompts(sync_files=True)

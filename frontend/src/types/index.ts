@@ -50,6 +50,7 @@ export interface ChatMessage {
   createdAt?: string
   tokens?: number
   tools?: ToolCallState[]
+  steps?: WorkflowStep[]
   streaming?: boolean
 }
 
@@ -63,11 +64,25 @@ export interface ToolCallState {
   status: 'running' | 'done' | 'error'
 }
 
+export interface WorkflowStep {
+  node: string
+  label: string
+  status: 'pending' | 'running' | 'success' | 'error'
+  tool?: string
+  elapsedMs?: number
+  error?: string
+}
+
+export type KbMode = 'generate' | 'retrieve'
+
 export interface ChatStreamRequest {
   conversationId: string
   message: string
   modelId?: string
+  /** @deprecated use kbIds */
   kbId?: string
+  kbIds?: string[]
+  kbMode?: KbMode
   enableTools?: boolean
 }
 
@@ -75,7 +90,10 @@ export interface ChatRegenerateRequest {
   conversationId: string
   messageId?: string
   modelId?: string
+  /** @deprecated use kbIds */
   kbId?: string
+  kbIds?: string[]
+  kbMode?: KbMode
   enableTools?: boolean
 }
 

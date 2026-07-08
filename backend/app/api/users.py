@@ -1,8 +1,9 @@
 """backend/app/api/users.py"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.common.pagination import clamp_page, page_result
 from app.common.response import success
 from app.core.deps import get_current_user, require_permission
 from app.db.session import get_db
@@ -20,10 +21,16 @@ def get_user_service(db: Session = Depends(get_db)) -> UserService:
 
 @router.get("")
 def list_users(
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
+    keyword: str = Query(default=""),
     user: User = Depends(require_permission("user:manage")),
     service: UserService = Depends(get_user_service),
 ):
-    return success([u.model_dump(by_alias=True) for u in service.list_users()])
+    page, size = clamp_page(page, size)
+    rows, total = service.list_users(page=page, size=size, keyword=keyword)
+    records = [u.model_dump(by_alias=True) for u in rows]
+    return success(page_result(records, total))
 
 
 @router.post("")

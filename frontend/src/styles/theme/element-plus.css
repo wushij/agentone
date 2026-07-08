@@ -1,0 +1,352 @@
+/* Element Plus 全局外观覆盖（浅色默认） */
+
+/* ── Buttons ── */
+.el-button {
+  border-radius: var(--ao-radius-full) !important;
+  font-weight: 600 !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.btn-icon-plus {
+  margin-right: 6px !important;
+  font-size: 13px !important;
+  color: currentColor !important;
+  opacity: 0.9 !important;
+}
+
+.btn-icon-plus svg,
+.btn-icon-plus svg path {
+  stroke: currentColor !important;
+  stroke-width: 2px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.el-button--primary {
+  border: none !important;
+  background: var(--theme-primary-gradient) !important;
+  background-size: 200% auto !important;
+  box-shadow: var(--ao-shadow-primary) !important;
+}
+
+.el-button--primary:hover,
+.el-button--primary:focus {
+  transform: translateY(-2px);
+  background-position: right center !important;
+  box-shadow: var(--ao-shadow-primary-hover) !important;
+}
+
+.el-button--default {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: var(--ao-border) !important;
+  color: var(--ao-text-secondary) !important;
+}
+
+.el-button--default:hover {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: var(--ao-border-strong) !important;
+  color: var(--ao-text-primary) !important;
+}
+
+.el-button.is-text {
+  color: var(--ao-text-secondary) !important;
+}
+
+.el-button.is-text:hover {
+  color: var(--theme-primary) !important;
+  background: var(--theme-primary-muted) !important;
+}
+
+/* ── Inputs ── */
+.el-input__wrapper,
+.el-select__wrapper {
+  border-radius: var(--ao-radius-full) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 0 0 1px var(--ao-border) inset !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-select__wrapper:has(.el-tag) {
+  border-radius: var(--ao-radius-lg) !important;
+  padding: 2px 28px 2px 8px !important;
+  min-height: 30px;
+}
+
+.el-select .el-select__selection .el-tag {
+  border: none !important;
+  border-radius: var(--ao-radius-sm) !important;
+  background: var(--theme-primary-muted) !important;
+  color: var(--theme-primary) !important;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+  max-width: 120px;
+}
+
+.el-select .el-select__selection .el-tag .el-tag__close {
+  color: var(--theme-primary);
+}
+
+.el-select .el-select__selection .el-tag .el-tag__close:hover {
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--theme-primary-hover);
+}
+
+.el-select__placeholder,
+.el-select__selected-item {
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--ao-text-primary) !important;
+}
+
+.el-select__placeholder {
+  z-index: 1 !important;
+}
+
+.el-select__wrapper.is-focused .el-select__placeholder,
+.el-select__wrapper.is-focused .el-select__selected-item {
+  color: var(--ao-text-primary) !important;
+}
+
+.el-select__placeholder.is-placeholder {
+  color: var(--ao-text-muted) !important;
+}
+
+.el-select__placeholder.is-transparent {
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--ao-text-primary) !important;
+}
+
+.el-select__input {
+  background: transparent !important;
+}
+
+.el-textarea__inner {
+  border-radius: var(--ao-radius-lg) !important;
+  padding: 12px 16px !important;
+  line-height: 1.6 !important;
+  color: var(--ao-text-primary) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 0 0 1px var(--ao-border) inset !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  resize: vertical;
+  min-height: 88px;
+}
+
+.el-input__inner {
+  color: var(--ao-text-primary) !important;
+}
+
+.el-textarea__inner::placeholder,
+.el-input__inner::placeholder {
+  color: var(--ao-text-muted) !important;
+  opacity: 1;
+}
+
+.el-textarea__inner:hover {
+  background: rgba(255, 255, 255, 0.78) !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) inset !important;
+}
+
+.el-input__wrapper:hover {
+  background: rgba(255, 255, 255, 0.78) !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) inset !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus,
+.el-select__wrapper.is-focused {
+  background: #ffffff !important;
+  transform: none;
+  box-shadow: 0 0 0 1px var(--theme-focus) inset !important;
+}
+
+.el-input-number {
+  border-radius: var(--ao-radius-full) !important;
+  overflow: hidden;
+  border: none !important;
+  box-shadow: 0 0 0 1px var(--ao-border) inset !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  transition: box-shadow 0.2s ease, background 0.2s ease !important;
+}
+
+.el-input-number:hover {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) inset !important;
+}
+
+.el-input-number.is-focus,
+.el-input-number:focus-within {
+  background: #ffffff !important;
+  box-shadow: 0 0 0 1px var(--theme-focus) inset !important;
+}
+
+.el-input-number .el-input__wrapper {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.el-input-number .el-input__wrapper.is-focus {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.el-input-number__decrease,
+.el-input-number__increase {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+/* ── Cards ── */
+.ao-card {
+  border-radius: var(--ao-radius-xl);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    var(--ao-shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.ao-card--hover {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.ao-card--hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ao-shadow-lg);
+}
+
+/* ── Overlays ── */
+.el-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.el-message-box {
+  border-radius: var(--ao-radius-2xl) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: var(--ao-shadow-lg) !important;
+}
+
+.el-message-box__title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--ao-text-primary) !important;
+}
+
+.el-dialog {
+  border-radius: var(--ao-radius-2xl) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: var(--ao-shadow-lg) !important;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--ao-border);
+  padding: 20px 28px !important;
+}
+
+.el-dialog__title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--ao-text-primary) !important;
+}
+
+.el-dialog__body {
+  padding: 24px 28px !important;
+  color: #475569;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 16px 28px !important;
+}
+
+.el-dropdown-menu {
+  border-radius: var(--ao-radius-lg) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: var(--ao-shadow-md) !important;
+  padding: 6px !important;
+}
+
+.el-dropdown-menu__item {
+  border-radius: var(--ao-radius) !important;
+  font-weight: 500;
+}
+
+/* ── Message / Notification ── */
+.el-message {
+  border-radius: var(--ao-radius-full) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.el-notification {
+  border-radius: var(--ao-radius-xl) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ── Tables ── */
+.el-table {
+  --el-table-header-bg-color: #f5f7fa;
+  --el-table-header-text-color: var(--ao-text-primary);
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600 !important;
+}
+
+.el-card {
+  border-radius: 16px !important;
+  border: 1px solid var(--theme-border, var(--ao-border)) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+.el-card__body {
+  padding: 20px !important;
+}
+
+/* ── Page title gradient ── */
+.ao-gradient-text {
+  background: linear-gradient(135deg, var(--ao-text-primary) 0%, #1e293b 50%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Inline prompt switch contrast fixes (L1.2) ── */
+.el-switch:not(.is-checked) .el-switch__inner .is-text {
+  color: var(--ao-text-secondary) !important;
+}
+
+html.dark .el-switch:not(.is-checked) .el-switch__inner .is-text {
+  color: var(--ao-text-secondary) !important;
+}
+
+.el-switch:not(.is-checked) .el-switch__core {
+  background-color: var(--ao-border-strong) !important;
+  border-color: var(--ao-border-strong) !important;
+}
+
+html.dark .el-switch:not(.is-checked) .el-switch__core {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.el-switch.is-checked .el-switch__inner .is-text {
+  color: #ffffff !important;
+}

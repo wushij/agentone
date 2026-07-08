@@ -202,7 +202,7 @@ function goNotifications() {
   position: relative;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--ao-radius-full);
   border: 1px solid var(--theme-border, var(--ao-border));
   background: transparent;
   color: var(--ao-text-secondary);

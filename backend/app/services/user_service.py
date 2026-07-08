@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
@@ -16,9 +16,27 @@ class UserService:
         self.db = db
         self.users = UserRepository(db)
 
-    def list_users(self) -> list[UserItem]:
-        rows = list(self.db.scalars(select(User).order_by(User.id.asc())).all())
-        return [self._to_item(u) for u in rows]
+    def list_users(
+        self,
+        *,
+        page: int = 1,
+        size: int = 10,
+        keyword: str = "",
+    ) -> tuple[list[UserItem], int]:
+        stmt = select(User)
+        count_stmt = select(func.count()).select_from(User)
+        if keyword.strip():
+            kw = f"%{keyword.strip()}%"
+            flt = or_(User.username.like(kw), User.nickname.like(kw))
+            stmt = stmt.where(flt)
+            count_stmt = count_stmt.where(flt)
+        total = int(self.db.scalar(count_stmt) or 0)
+        rows = list(
+            self.db.scalars(
+                stmt.order_by(User.id.asc()).offset((page - 1) * size).limit(size)
+            ).all()
+        )
+        return [self._to_item(u) for u in rows], total
 
     def create_user(self, request: UserCreateRequest, *, actor_role: str) -> UserItem:
         if self.users.get_by_username(request.username.strip()):

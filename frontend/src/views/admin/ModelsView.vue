@@ -16,6 +16,7 @@ import {
 } from '@/api/admin'
 
 const models = ref<ModelItem[]>([])
+const total = ref(0)
 const dialog = ref(false)
 const editing = ref<ModelItem | null>(null)
 const testResults = ref<Record<string, { success: boolean; latency?: number; error?: string }>>({})
@@ -33,15 +34,49 @@ const PROVIDER_DEFAULTS = {
     portalUrl: 'https://platform.openai.com'
   },
   qwen: {
-    modelName: 'qwen-plus',
+    modelName: 'qwen3.7-plus',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     portalUrl: 'https://modelstudio.console.alibabacloud.com'
+  },
+  zhipu: {
+    modelName: 'glm-5.2',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    portalUrl: 'https://open.bigmodel.cn'
+  },
+  minimax: {
+    modelName: 'MiniMax-M3',
+    baseUrl: 'https://api.minimax.chat/v1',
+    portalUrl: 'https://platform.minimaxi.com'
+  },
+  claude: {
+    modelName: 'claude-sonnet-4-6',
+    baseUrl: 'https://api.anthropic.com/v1',
+    portalUrl: 'https://console.anthropic.com'
+  },
+  kimi: {
+    modelName: 'kimi-k2.7-code',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    portalUrl: 'https://platform.moonshot.cn'
   },
   mock: {
     modelName: 'mock-chat',
     baseUrl: '',
     portalUrl: ''
   }
+}
+
+function getProviderDisplayName(provider: string) {
+  const mapping: Record<string, string> = {
+    deepseek: 'DeepSeek',
+    openai: 'OpenAI',
+    qwen: 'Qwen',
+    zhipu: 'GLM',
+    minimax: 'MiniMax',
+    claude: 'Claude',
+    kimi: 'Kimi',
+    mock: 'Mock'
+  }
+  return mapping[provider] || provider
 }
 
 const form = reactive({
@@ -57,7 +92,9 @@ const form = reactive({
 onMounted(load)
 
 async function load() {
-  models.value = await fetchModels()
+  const data = await fetchModels({ page: 1, size: 100 })
+  models.value = data.records
+  total.value = data.total
 }
 
 function openCreate() {
@@ -79,9 +116,6 @@ function handleProviderChange(val: string) {
   if (!defaults) return
   form.modelName = defaults.modelName
   form.baseUrl = defaults.baseUrl
-  if (!editing.value) {
-    form.name = defaults.modelName
-  }
 }
 
 function openEdit(m: ModelItem) {
@@ -105,6 +139,7 @@ async function save() {
   }
   if (editing.value) {
     await updateModel(editing.value.name, {
+      name: form.name,
       provider: form.provider,
       modelName: form.modelName,
       baseUrl: form.baseUrl || undefined,
@@ -165,7 +200,10 @@ async function handleDelete(name: string) {
   <div class="view-page">
     <PageHeader title="模型管理" subtitle="LLM 接入与参数配置，保存后立即生效">
       <template #action>
-        <el-button type="primary" round @click="openCreate"><el-icon><Plus /></el-icon> 新增模型</el-button>
+        <el-button @click="openCreate">
+          <el-icon class="btn-icon-plus"><Plus /></el-icon>
+          新增模型
+        </el-button>
       </template>
     </PageHeader>
     <div class="model-grid">
@@ -199,6 +237,7 @@ async function handleDelete(name: string) {
       </GlassCard>
     </div>
 
+
     <el-dialog
       v-model="dialog"
       width="520px"
@@ -214,16 +253,101 @@ async function handleDelete(name: string) {
       </template>
 
       <el-form label-width="100px">
-        <el-form-item label="名称"><el-input v-model="form.name" :disabled="!!editing" /></el-form-item>
+        <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="供应商">
           <el-select v-model="form.provider" placeholder="请选择供应商" style="width: 100%" @change="handleProviderChange">
             <el-option label="DeepSeek" value="deepseek" />
             <el-option label="OpenAI" value="openai" />
             <el-option label="Qwen" value="qwen" />
+            <el-option label="GLM" value="zhipu" />
+            <el-option label="MiniMax" value="minimax" />
+            <el-option label="Claude" value="claude" />
+            <el-option label="Kimi" value="kimi" />
             <el-option label="Mock" value="mock" />
           </el-select>
         </el-form-item>
-        <el-form-item label="模型名称"><el-input v-model="form.modelName" /></el-form-item>
+        <el-form-item label="模型名称">
+          <!-- DeepSeek Options -->
+          <el-select
+            v-if="form.provider === 'deepseek'"
+            v-model="form.modelName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或输入模型名称"
+            style="width: 100%"
+          >
+            <el-option label="deepseek-v4-flash" value="deepseek-v4-flash" />
+            <el-option label="deepseek-v4-pro" value="deepseek-v4-pro" />
+          </el-select>
+          <!-- Qwen Options -->
+          <el-select
+            v-else-if="form.provider === 'qwen'"
+            v-model="form.modelName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或输入模型名称"
+            style="width: 100%"
+          >
+            <el-option label="qwen3.7-plus" value="qwen3.7-plus" />
+            <el-option label="qwen3.7-max" value="qwen3.7-max" />
+            <el-option label="qwen3.6-plus" value="qwen3.6-plus" />
+          </el-select>
+          <!-- Zhipu Options -->
+          <el-select
+            v-else-if="form.provider === 'zhipu'"
+            v-model="form.modelName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或输入模型名称"
+            style="width: 100%"
+          >
+            <el-option label="glm-5.2" value="glm-5.2" />
+            <el-option label="glm-5.1" value="glm-5.1" />
+          </el-select>
+          <!-- Claude Options -->
+          <el-select
+            v-else-if="form.provider === 'claude'"
+            v-model="form.modelName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或输入模型名称"
+            style="width: 100%"
+          >
+            <el-option label="claude-sonnet-4-6" value="claude-sonnet-4-6" />
+            <el-option label="claude-opus-4-8" value="claude-opus-4-8" />
+          </el-select>
+          <!-- MiniMax Options -->
+          <el-select
+            v-else-if="form.provider === 'minimax'"
+            v-model="form.modelName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或输入模型名称"
+            style="width: 100%"
+          >
+            <el-option label="MiniMax-M3" value="MiniMax-M3" />
+            <el-option label="MiniMax-M2.7" value="MiniMax-M2.7" />
+          </el-select>
+          <!-- Kimi Options -->
+          <el-select
+            v-else-if="form.provider === 'kimi'"
+            v-model="form.modelName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或输入模型名称"
+            style="width: 100%"
+          >
+            <el-option label="kimi-k2.7-code" value="kimi-k2.7-code" />
+            <el-option label="kimi-k2.6" value="kimi-k2.6" />
+          </el-select>
+          <el-input v-else v-model="form.modelName" />
+        </el-form-item>
         <el-form-item label="请求地址"><el-input v-model="form.baseUrl" placeholder="可选" /></el-form-item>
         <el-form-item label="API Key">
           <el-input v-model="form.apiKey" type="password" show-password :placeholder="editing?.hasApiKey ? '留空不修改' : ''" />
@@ -234,7 +358,7 @@ async function handleDelete(name: string) {
             target="_blank"
             style="margin-top: 4px; font-size: 12px;"
           >
-            获取 {{ form.provider === 'deepseek' ? 'deepseek' : (form.provider === 'openai' ? 'OpenAI' : (form.provider === 'qwen' ? 'Qwen' : 'Mock')) }} API Key
+            获取 {{ getProviderDisplayName(form.provider) }} API Key
           </el-link>
         </el-form-item>
         <el-form-item label="Temperature"><el-slider v-model="form.temperature" :min="0" :max="2" :step="0.1" /></el-form-item>

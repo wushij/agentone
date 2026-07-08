@@ -24,10 +24,12 @@ from fastapi import APIRouter, Depends, Query
 @router.get("")
 def list_conversations(
     q: str = Query(default=""),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=50, ge=1, le=200),
     user: User = Depends(get_current_user),
     service: ConversationService = Depends(get_conversation_service),
 ):
-    data = service.list_conversations(user.id, keyword=q)
+    data = service.list_conversations(user.id, keyword=q, page=page, size=size)
     return success(data.model_dump(by_alias=True))
 
 
@@ -115,18 +117,3 @@ def export_conversation(
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{conversation_id}.md"'},
     )
-
-
-from pydantic import BaseModel
-
-class BatchDeleteRequest(BaseModel):
-    ids: list[str]
-
-@router.post("/batch-delete")
-def batch_delete(
-    body: BatchDeleteRequest,
-    user: User = Depends(get_current_user),
-    service: ConversationService = Depends(get_conversation_service),
-):
-    service.batch_delete_conversations(user.id, body.ids)
-    return success(None, message="批量删除成功")

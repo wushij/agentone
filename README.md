@@ -102,10 +102,3 @@ cp .env.example .env
 docker compose up -d --build
 ```
 访问线上预览服务：`http://localhost` (Nginx 自动反向代理前端与 API 流通道)。详细配置请参考 [deploy/README.md](./deploy/README.md)。
-
----
-
-## 📋 设计文档与实现进度
-
-- [docs/README.md](./docs/README.md) — 全部设计文档索引
-- [**docs/实现进度对照.md**](./docs/实现进度对照.md) — 设计 vs 代码完成度审计、缺口与优先级

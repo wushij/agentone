@@ -7,6 +7,8 @@ import { ElMessage } from 'element-plus'
 import { Plus, User } from '@element-plus/icons-vue'
 
 import PageHeader from '@/components/common/PageHeader.vue'
+import TablePagination from '@/components/common/TablePagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 import { confirmAction, confirmDelete } from '@/utils/confirm'
 
@@ -29,6 +31,7 @@ import {
 const users = ref<UserItem[]>([])
 
 const loading = ref(false)
+const { page, size, total } = usePagination(10)
 
 const dialog = ref(false)
 
@@ -72,7 +75,11 @@ async function load() {
 
   try {
 
-    users.value = await fetchUsers()
+    const data = await fetchUsers({ page: page.value, size: size.value })
+
+    users.value = data.records
+
+    total.value = data.total
 
   } catch {
 
@@ -237,19 +244,12 @@ function roleLabel(role: string) {
   <div class="view-page">
 
     <PageHeader title="用户管理" subtitle="管理系统账号、角色与启用状态。">
-
       <template #action>
-
-        <el-button type="primary" @click="openCreate">
-
-          <el-icon><Plus /></el-icon>
-
+        <el-button @click="openCreate">
+          <el-icon class="btn-icon-plus"><Plus /></el-icon>
           新建用户
-
         </el-button>
-
       </template>
-
     </PageHeader>
 
 
@@ -327,6 +327,8 @@ function roleLabel(role: string) {
         </el-table-column>
 
       </el-table>
+
+      <TablePagination v-model:page="page" v-model:size="size" :total="total" @change="load" />
 
     </el-card>
 

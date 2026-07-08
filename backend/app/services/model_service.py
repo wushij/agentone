@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -17,8 +17,18 @@ class ModelService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_models(self) -> list[ModelConfig]:
-        return list(self.db.scalars(select(ModelConfig).order_by(ModelConfig.id)).all())
+    def list_models(self, *, page: int = 1, size: int = 10) -> tuple[list[ModelConfig], int]:
+        count_stmt = select(func.count()).select_from(ModelConfig)
+        total = int(self.db.scalar(count_stmt) or 0)
+        rows = list(
+            self.db.scalars(
+                select(ModelConfig)
+                .order_by(ModelConfig.id)
+                .offset((page - 1) * size)
+                .limit(size)
+            ).all()
+        )
+        return rows, total
 
     def get_by_name(self, name: str) -> ModelConfig | None:
         return self.db.scalar(select(ModelConfig).where(ModelConfig.name == name))
@@ -61,6 +71,8 @@ class ModelService:
         if data.get("isDefault"):
             self._clear_default()
             row.is_default = 1
+        if "name" in data and data["name"] is not None:
+            row.name = data["name"]
         if "provider" in data and data["provider"] is not None:
             row.provider = data["provider"]
         if "apiKey" in data and data["apiKey"]:
@@ -97,7 +109,8 @@ class ModelService:
         return row
 
     def _clear_default(self) -> None:
-        for row in self.list_models():
+        rows, _ = self.list_models(page=1, size=500)
+        for row in rows:
             if row.is_default:
                 row.is_default = 0
         self.db.flush()
@@ -172,7 +185,8 @@ class ModelService:
         }
 
     def seed_defaults(self) -> None:
-        if self.list_models():
+        _, total = self.list_models(page=1, size=1)
+        if total:
             return
         settings = get_settings()
         self.create(

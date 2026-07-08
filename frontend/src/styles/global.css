@@ -148,18 +148,3 @@ button {
 .ao-fade-in {
   animation: ao-fade-in 0.35s ease-out both;
 }
-
-@keyframes typing-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.typing-cursor::after {
-  content: '▋';
-  display: inline-block;
-  margin-left: 2px;
-  color: var(--theme-primary);
-  animation: typing-blink 0.9s step-end infinite;
-  font-size: 0.95em;
-  vertical-align: baseline;
-}

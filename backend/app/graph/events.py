@@ -6,7 +6,18 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
-SseEventType = Literal["token", "tool_start", "tool_end", "usage", "done", "error"]
+SseEventType = Literal["token", "tool_start", "tool_end", "usage", "done", "error", "step"]
+
+NODE_LABELS: dict[str, str] = {
+    "prepare": "准备处理",
+    "rag": "检索知识库",
+    "planner": "分析意图与规划",
+    "researcher": "识别意图与路由",
+    "tool": "调用工具",
+    "reviewer": "审阅与校验",
+    "summarizer": "组织最终回答",
+    "format": "整理检索结果",
+}
 
 
 @dataclass
@@ -34,6 +45,8 @@ class AgentStatusEvent:
     tool: str = ""
     elapsed_ms: int = 0
     error: str = ""
+    detail: str = ""
+    label: str = ""
 
 
 @dataclass
@@ -44,6 +57,33 @@ class TokenUsage:
     @property
     def total_tokens(self) -> int:
         return self.prompt_tokens + self.completion_tokens
+
+
+def step_event(
+    ctx: StreamContext,
+    node: str,
+    status: Literal["pending", "running", "success", "error"],
+    *,
+    tool: str = "",
+    elapsed_ms: int = 0,
+    error: str = "",
+    label: str = "",
+    detail: str = "",
+) -> SseEvent:
+    data: dict[str, Any] = {
+        "conversationId": ctx.conversation_id,
+        "messageId": ctx.message_id,
+        "node": node,
+        "status": status,
+        "label": label or NODE_LABELS.get(node, node),
+        "tool": tool,
+        "elapsedMs": elapsed_ms,
+    }
+    if detail:
+        data["detail"] = detail
+    if error:
+        data["error"] = error
+    return SseEvent("step", data)
 
 
 def token_event(ctx: StreamContext, delta: str) -> SseEvent:

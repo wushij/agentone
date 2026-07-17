@@ -42,8 +42,9 @@ def route_unsupported_message(state: AgentState) -> dict:
     intent = state.get("intent") or "unknown"
     return {
         "final_answer": (
-            f"识别到意图「{intent}」，但该工具尚未在 V1.0 中实现。"
-            "当前仅支持：普通对话、Calculator、Search（占位）、File、Database（占位）。"
+            f"识别到意图「{intent}」，但当前没有匹配的内置工具。"
+            "已支持：普通对话、calculator（计算器）、search（网络搜索）、"
+            "file（用户文件读取）、database（只读数据库查询）。"
         ),
         "llm_response": "",
         "error": "",

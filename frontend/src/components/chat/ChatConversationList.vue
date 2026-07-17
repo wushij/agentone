@@ -78,7 +78,10 @@ const {
               <el-checkbox :value="conv.id" @click.stop="" />
             </el-checkbox-group>
             <div class="conv-item-main">
-              <span class="conv-title">{{ conv.title }}</span>
+              <span class="conv-title">
+                {{ conv.title }}
+                <span v-if="chatStore.isConversationStreaming(conv.id)" class="conv-streaming-badge">生成中</span>
+              </span>
               <span class="conv-sub">{{ formatSessionTime(conv.updatedAt) }}</span>
             </div>
             <div v-if="!isBatchMode" class="conv-actions-overlay">
@@ -321,13 +324,25 @@ const {
   gap: 4px;
 }
 .conv-title {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 700;
   color: var(--ao-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.conv-streaming-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  background: var(--theme-primary-muted);
+  padding: 1px 6px;
+  border-radius: 999px;
 }
 .conv-sub {
   font-size: 11px;

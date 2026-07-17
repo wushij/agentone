@@ -12,19 +12,22 @@ import type { ChatMessage, ConversationSummary, WorkflowStep } from '@/types'
 import { nowIso, saveLastConversationId, uid } from './helpers'
 
 export interface ChatStreamContext {
-  messages: Ref<ChatMessage[]>
   conversations: Ref<ConversationSummary[]>
   currentId: Ref<string | null>
-  streaming: Ref<boolean>
-  abortController: Ref<AbortController | null>
+  ensureMessageList: (convId: string) => ChatMessage[]
+  isConversationStreaming: (convId: string) => boolean
+  setConversationStreaming: (convId: string, on: boolean) => void
+  getAbortController: (convId: string) => AbortController | undefined
+  setAbortController: (convId: string, controller: AbortController | null) => void
   selectedModelId: Ref<string | null>
   recalculateTotalTokens: () => void
-  syncCurrentConversation: () => Promise<void>
+  syncConversation: (convId: string) => Promise<void>
   startNewChat: () => Promise<ConversationSummary>
 }
 
 export function createChatStreaming(ctx: ChatStreamContext) {
-  function appendUserMessage(content: string) {
+  function appendUserMessage(convId: string, content: string) {
+    const list = ctx.ensureMessageList(convId)
     const id = uid()
     const msg: ChatMessage = {
       id,
@@ -33,11 +36,12 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       content,
       createdAt: nowIso()
     }
-    ctx.messages.value.push(msg)
+    list.push(msg)
     return msg
   }
 
-  function beginAssistantMessage() {
+  function beginAssistantMessage(convId: string) {
+    const list = ctx.ensureMessageList(convId)
     const id = uid()
     const msg: ChatMessage = {
       id,
@@ -49,21 +53,24 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       tools: [],
       steps: []
     }
-    ctx.messages.value.push(msg)
+    list.push(msg)
     return msg
   }
 
-  function getStreamingMessage(): ChatMessage | undefined {
-    return [...ctx.messages.value].reverse().find((m) => m.role === 'assistant' && m.streaming)
+  function getStreamingMessage(convId: string): ChatMessage | undefined {
+    return [...ctx.ensureMessageList(convId)]
+      .reverse()
+      .find((m) => m.role === 'assistant' && m.streaming)
   }
 
-  function appendDelta(delta: string) {
-    const msg = getStreamingMessage()
+  function appendDelta(convId: string, delta: string) {
+    const msg = getStreamingMessage(convId)
     if (msg) msg.content += delta
+    ctx.recalculateTotalTokens()
   }
 
-  function startTool(payload: SseToolStartPayload) {
-    const msg = getStreamingMessage()
+  function startTool(convId: string, payload: SseToolStartPayload) {
+    const msg = getStreamingMessage(convId)
     if (!msg) return
     if (!msg.tools) msg.tools = []
     const tempId = `${payload.tool}_${msg.tools.length}`
@@ -76,8 +83,8 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     })
   }
 
-  function endTool(payload: SseToolEndPayload) {
-    const msg = getStreamingMessage()
+  function endTool(convId: string, payload: SseToolEndPayload) {
+    const msg = getStreamingMessage(convId)
     if (!msg?.tools?.length) return
     const tool = [...msg.tools].reverse().find((t) => t.tool === payload.tool && t.status === 'running')
     if (!tool) return
@@ -86,33 +93,35 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     tool.durationMs = payload.durationMs
   }
 
-  function finishMessage() {
-    const msg = getStreamingMessage()
+  function finishMessage(convId: string) {
+    const msg = getStreamingMessage(convId)
     if (msg) msg.streaming = false
-    ctx.streaming.value = false
-    ctx.abortController.value = null
+    ctx.setConversationStreaming(convId, false)
+    ctx.setAbortController(convId, null)
 
-    if (ctx.currentId.value) {
-      saveLastConversationId(ctx.currentId.value)
-      const conv = ctx.conversations.value.find((c) => c.id === ctx.currentId.value)
-      if (conv) {
-        conv.messageCount = ctx.messages.value.length
-        conv.updatedAt = nowIso()
-      }
-      void ctx.syncCurrentConversation()
+    saveLastConversationId(convId)
+    const conv = ctx.conversations.value.find((c) => c.id === convId)
+    const list = ctx.ensureMessageList(convId)
+    if (conv) {
+      conv.messageCount = list.length
+      conv.updatedAt = nowIso()
     }
+    ctx.recalculateTotalTokens()
+    void ctx.syncConversation(convId)
   }
 
-  function abortStream() {
-    ctx.abortController.value?.abort()
-    ctx.abortController.value = null
-    ctx.streaming.value = false
-    const msg = getStreamingMessage()
+  function abortStream(convId?: string) {
+    const id = convId ?? ctx.currentId.value
+    if (!id) return
+    ctx.getAbortController(id)?.abort()
+    ctx.setAbortController(id, null)
+    ctx.setConversationStreaming(id, false)
+    const msg = getStreamingMessage(id)
     if (msg) msg.streaming = false
   }
 
-  function updateStep(payload: SseStepPayload) {
-    const msg = getStreamingMessage()
+  function updateStep(convId: string, payload: SseStepPayload) {
+    const msg = getStreamingMessage(convId)
     if (!msg) return
     if (!msg.steps) msg.steps = []
     const label = payload.label || payload.node
@@ -132,14 +141,14 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     }
   }
 
-  function buildStreamHandlers() {
+  function buildStreamHandlers(convId: string) {
     return {
-      onToken: (p: SseTokenPayload) => appendDelta(p.delta),
-      onStep: (p: SseStepPayload) => updateStep(p),
-      onToolStart: (p: SseToolStartPayload) => startTool(p),
-      onToolEnd: (p: SseToolEndPayload) => endTool(p),
+      onToken: (p: SseTokenPayload) => appendDelta(convId, p.delta),
+      onStep: (p: SseStepPayload) => updateStep(convId, p),
+      onToolStart: (p: SseToolStartPayload) => startTool(convId, p),
+      onToolEnd: (p: SseToolEndPayload) => endTool(convId, p),
       onUsage: (p: { totalTokens: number }) => {
-        const msg = getStreamingMessage()
+        const msg = getStreamingMessage(convId)
         if (msg) msg.tokens = p.totalTokens
         ctx.recalculateTotalTokens()
       },
@@ -147,14 +156,14 @@ export function createChatStreaming(ctx: ChatStreamContext) {
         const conv = ctx.conversations.value.find((c) => c.id === p.conversationId)
         if (conv && p.title) conv.title = p.title
       },
-      onDone: () => finishMessage(),
+      onDone: () => finishMessage(convId),
       onError: (err: { message: string; code?: string }) => {
         const message =
           err.code === 'CONVERSATION_BUSY'
             ? '该会话正在生成中，请稍后再试'
             : err.message || '对话出错'
         ElMessage.error(message)
-        finishMessage()
+        finishMessage(convId)
       }
     }
   }
@@ -184,7 +193,7 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     }
   ) {
     const text = content.trim()
-    if (!text || ctx.streaming.value) return null
+    if (!text) return null
 
     let convId = ctx.currentId.value
     if (!convId) {
@@ -192,12 +201,15 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       convId = conv.id
     }
 
-    appendUserMessage(text)
-    beginAssistantMessage()
-    ctx.streaming.value = true
+    if (ctx.isConversationStreaming(convId)) return null
+
+    appendUserMessage(convId, text)
+    beginAssistantMessage(convId)
+    ctx.recalculateTotalTokens()
+    ctx.setConversationStreaming(convId, true)
 
     const controller = new AbortController()
-    ctx.abortController.value = controller
+    ctx.setAbortController(convId, controller)
     const opts = streamOptions(options)
 
     await createChatStream(
@@ -209,11 +221,11 @@ export function createChatStreaming(ctx: ChatStreamContext) {
         kbMode: opts.kbMode,
         enableTools: opts.enableTools
       },
-      buildStreamHandlers(),
+      buildStreamHandlers(convId),
       controller.signal
     )
 
-    if (ctx.streaming.value) finishMessage()
+    if (ctx.isConversationStreaming(convId)) finishMessage(convId)
     saveLastConversationId(convId)
     return convId
   }
@@ -228,28 +240,29 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     }
   ) {
     const convId = ctx.currentId.value
-    if (!convId || ctx.streaming.value) return
+    if (!convId || ctx.isConversationStreaming(convId)) return
 
+    const list = ctx.ensureMessageList(convId)
     const target = messageId
-      ? ctx.messages.value.find((m) => m.id === messageId || m.clientId === messageId)
-      : [...ctx.messages.value].reverse().find((m) => m.role === 'assistant')
+      ? list.find((m) => m.id === messageId || m.clientId === messageId)
+      : [...list].reverse().find((m) => m.role === 'assistant')
 
     if (!target || target.role !== 'assistant') {
       ElMessage.warning('找不到要重新生成的消息')
       return
     }
 
-    const targetIdx = ctx.messages.value.findIndex((m) => m.id === target.id)
+    const targetIdx = list.findIndex((m) => m.id === target.id)
     if (targetIdx >= 0) {
-      ctx.messages.value = ctx.messages.value.slice(0, targetIdx)
+      list.splice(targetIdx)
       ctx.recalculateTotalTokens()
     }
 
-    beginAssistantMessage()
-    ctx.streaming.value = true
+    beginAssistantMessage(convId)
+    ctx.setConversationStreaming(convId, true)
 
     const controller = new AbortController()
-    ctx.abortController.value = controller
+    ctx.setAbortController(convId, controller)
     const opts = streamOptions(options)
 
     await createRegenerateStream(
@@ -261,11 +274,11 @@ export function createChatStreaming(ctx: ChatStreamContext) {
         kbMode: opts.kbMode,
         enableTools: opts.enableTools
       },
-      buildStreamHandlers(),
+      buildStreamHandlers(convId),
       controller.signal
     )
 
-    if (ctx.streaming.value) finishMessage()
+    if (ctx.isConversationStreaming(convId)) finishMessage(convId)
   }
 
   return {

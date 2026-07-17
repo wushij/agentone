@@ -19,7 +19,8 @@ import {
   nowIso,
   saveLastConversationId,
   sortConversations,
-  uid
+  uid,
+  estimateMessageTokens
 } from './chat/helpers'
 import { createChatStreaming } from './chat/streaming'
 
@@ -27,26 +28,96 @@ export const useChatStore = defineStore('chat', () => {
   const initialized = ref(false)
   const conversations = ref<ConversationSummary[]>([])
   const currentId = ref<string | null>(null)
-  const messages = ref<ChatMessage[]>([])
-  const streaming = ref(false)
+  const messageCache = ref<Record<string, ChatMessage[]>>({})
+  const streamingByConvId = ref<Record<string, boolean>>({})
+  const abortControllers = ref<Record<string, AbortController>>({})
   const totalTokens = ref(0)
   const loadingConversations = ref(false)
   const loadingMessages = ref(false)
   const creatingConversation = ref(false)
   const searchQuery = ref('')
-  const abortController = ref<AbortController | null>(null)
   const selectedModelId = ref<string | null>(null)
   const availableModels = ref<AvailableModel[]>([])
   let ensureConversationPromise: Promise<ConversationSummary> | null = null
 
-  function applyConversationTokens(detail: { messages?: ChatMessage[]; totalTokens?: number }) {
-    messages.value = detail.messages ?? []
-    totalTokens.value =
-      detail.totalTokens ?? messages.value.reduce((sum, m) => sum + (m.tokens ?? 0), 0)
+  const messages = computed(() => {
+    const id = currentId.value
+    if (!id) return []
+    return messageCache.value[id] ?? []
+  })
+
+  const streaming = computed(() => {
+    const id = currentId.value
+    return id ? Boolean(streamingByConvId.value[id]) : false
+  })
+
+  function ensureMessageList(convId: string): ChatMessage[] {
+    if (!messageCache.value[convId]) {
+      messageCache.value[convId] = []
+    }
+    return messageCache.value[convId]
+  }
+
+  function setMessageList(convId: string, msgs: ChatMessage[]) {
+    messageCache.value = { ...messageCache.value, [convId]: msgs }
+  }
+
+  function clearMessageCache(convId: string) {
+    const next = { ...messageCache.value }
+    delete next[convId]
+    messageCache.value = next
+  }
+
+  function isConversationStreaming(convId: string) {
+    return Boolean(streamingByConvId.value[convId])
+  }
+
+  function setConversationStreaming(convId: string, on: boolean) {
+    if (on) {
+      streamingByConvId.value = { ...streamingByConvId.value, [convId]: true }
+    } else {
+      const next = { ...streamingByConvId.value }
+      delete next[convId]
+      streamingByConvId.value = next
+    }
+  }
+
+  function getAbortController(convId: string) {
+    return abortControllers.value[convId]
+  }
+
+  function setAbortController(convId: string, controller: AbortController | null) {
+    if (controller) {
+      abortControllers.value = { ...abortControllers.value, [convId]: controller }
+    } else {
+      const next = { ...abortControllers.value }
+      delete next[convId]
+      abortControllers.value = next
+    }
+  }
+
+  function applyConversationTokens(
+    detail: { messages?: ChatMessage[]; totalTokens?: number },
+    convId: string
+  ) {
+    const msgs = detail.messages ?? []
+    setMessageList(convId, msgs)
+    if (currentId.value === convId) {
+      totalTokens.value =
+        detail.totalTokens ?? msgs.reduce((sum, m) => sum + (m.tokens ?? 0), 0)
+    }
   }
 
   function recalculateTotalTokens() {
-    totalTokens.value = messages.value.reduce((sum, m) => sum + (m.tokens ?? 0), 0)
+    totalTokens.value = messages.value.reduce((sum, m) => {
+      if (m.streaming) {
+        return sum + estimateMessageTokens(m.content)
+      }
+      if (m.tokens != null && m.tokens > 0) {
+        return sum + m.tokens
+      }
+      return sum + estimateMessageTokens(m.content)
+    }, 0)
   }
 
   const currentConversation = computed(() =>
@@ -114,7 +185,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function activateConversation(conv: ConversationSummary) {
     currentId.value = conv.id
-    messages.value = []
+    setMessageList(conv.id, [])
     totalTokens.value = 0
     conv.updatedAt = nowIso()
     upsertConversation(conv)
@@ -142,7 +213,7 @@ export const useChatStore = defineStore('chat', () => {
           ...conversations.value.filter((c) => c.id !== local.id)
         ])
         currentId.value = local.id
-        messages.value = []
+        setMessageList(local.id, [])
         totalTokens.value = 0
         return local
       } finally {
@@ -155,37 +226,37 @@ export const useChatStore = defineStore('chat', () => {
     return ensureConversationPromise
   }
 
-  async function syncCurrentConversation() {
-    if (!currentId.value) return
+  async function syncConversation(convId: string) {
+    if (isConversationStreaming(convId)) return
     try {
-      const detail = await getConversation(currentId.value)
+      const detail = await getConversation(convId)
       upsertConversation(detail)
-      if (!streaming.value) {
-        const localMsgs = messages.value
-        const serverMsgs = detail.messages ?? []
-        let localIdx = 0
-        for (const sMsg of serverMsgs) {
-          while (localIdx < localMsgs.length && localMsgs[localIdx].role !== sMsg.role) {
-            localIdx++
-          }
-          if (localIdx < localMsgs.length) {
-            const localMsg = localMsgs[localIdx]
-            sMsg.clientId = localMsg.clientId || localMsg.id
+      const localMsgs = ensureMessageList(convId)
+      const serverMsgs = detail.messages ?? []
+      let localIdx = 0
+      for (const sMsg of serverMsgs) {
+        while (localIdx < localMsgs.length && localMsgs[localIdx].role !== sMsg.role) {
+          localIdx++
+        }
+        if (localIdx < localMsgs.length) {
+          const localMsg = localMsgs[localIdx]
+          sMsg.clientId = localMsg.clientId || localMsg.id
 
-            if (sMsg.tools && localMsg.tools) {
-              for (let tIdx = 0; tIdx < sMsg.tools.length; tIdx++) {
-                const sTool = sMsg.tools[tIdx]
-                const lTool = localMsg.tools[tIdx]
-                if (lTool && lTool.tool === sTool.tool) {
-                  sTool.clientId = lTool.clientId || lTool.id
-                }
+          if (sMsg.tools && localMsg.tools) {
+            for (let tIdx = 0; tIdx < sMsg.tools.length; tIdx++) {
+              const sTool = sMsg.tools[tIdx]
+              const lTool = localMsg.tools[tIdx]
+              if (lTool && lTool.tool === sTool.tool) {
+                sTool.clientId = lTool.clientId || lTool.id
               }
             }
-
-            localIdx++
           }
+
+          localIdx++
         }
-        messages.value = serverMsgs
+      }
+      setMessageList(convId, serverMsgs)
+      if (currentId.value === convId) {
         totalTokens.value =
           detail.totalTokens ?? serverMsgs.reduce((sum, m) => sum + (m.tokens ?? 0), 0)
       }
@@ -195,30 +266,38 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   const { abortStream, sendMessage, regenerateMessage } = createChatStreaming({
-    messages,
     conversations,
     currentId,
-    streaming,
-    abortController,
+    ensureMessageList,
+    isConversationStreaming,
+    setConversationStreaming,
+    getAbortController,
+    setAbortController,
     selectedModelId,
     recalculateTotalTokens,
-    syncCurrentConversation,
+    syncConversation,
     startNewChat: () => startNewChat()
   })
 
   async function selectConversation(id: string) {
-    if (streaming.value) abortStream()
+    if (id === currentId.value) return
+
     currentId.value = id
     saveLastConversationId(id)
+
+    if (isConversationStreaming(id)) {
+      recalculateTotalTokens()
+      return
+    }
 
     loadingMessages.value = true
     try {
       const detail = await getConversation(id)
-      applyConversationTokens(detail)
+      applyConversationTokens(detail, id)
       upsertConversation(detail)
     } catch {
-      messages.value = []
-      totalTokens.value = 0
+      setMessageList(id, [])
+      if (currentId.value === id) totalTokens.value = 0
       if (loadLastConversationId() === id) saveLastConversationId(null)
       throw new Error('加载会话失败')
     } finally {
@@ -227,8 +306,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function startNewChat() {
-    if (streaming.value) abortStream()
-
     if (currentId.value && currentConversation.value) {
       const current = currentConversation.value
       if (isEmptyNewConversation(current) && messages.value.length === 0) {
@@ -245,10 +322,6 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function openDefaultConversation() {
-    if (streaming.value && currentId.value) {
-      return currentConversation.value
-    }
-
     const lastId = loadLastConversationId()
     if (lastId) {
       try {
@@ -308,6 +381,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function removeConversation(id: string) {
+    if (isConversationStreaming(id)) abortStream(id)
     try {
       await deleteConversation(id)
     } catch {
@@ -315,10 +389,10 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error('delete failed')
     }
     conversations.value = conversations.value.filter((c) => c.id !== id)
+    clearMessageCache(id)
     if (loadLastConversationId() === id) saveLastConversationId(null)
     if (currentId.value === id) {
       currentId.value = null
-      messages.value = []
       totalTokens.value = 0
       await pickNextConversationAfterDelete()
     }
@@ -327,6 +401,10 @@ export const useChatStore = defineStore('chat', () => {
 
   async function removeConversationsBatch(ids: string[]) {
     if (!ids.length) return
+    for (const id of ids) {
+      if (isConversationStreaming(id)) abortStream(id)
+      clearMessageCache(id)
+    }
     try {
       await deleteConversationsBatch(ids)
       ElMessage.success('批量删除成功')
@@ -337,7 +415,6 @@ export const useChatStore = defineStore('chat', () => {
     if (ids.includes(loadLastConversationId() ?? '')) saveLastConversationId(null)
     if (currentId.value && ids.includes(currentId.value)) {
       currentId.value = null
-      messages.value = []
       totalTokens.value = 0
       await pickNextConversationAfterDelete()
     }
@@ -352,7 +429,6 @@ export const useChatStore = defineStore('chat', () => {
       }
       if (currentId.value === id && archive) {
         currentId.value = null
-        messages.value = []
         totalTokens.value = 0
         await pickNextConversationAfterDelete()
       }
@@ -384,14 +460,18 @@ export const useChatStore = defineStore('chat', () => {
     }
     try {
       const detail = await getConversation(convId)
-      applyConversationTokens(detail)
+      applyConversationTokens(detail, convId)
       upsertConversation(detail)
     } catch {
-      messages.value = messages.value.filter((m) => m.id !== messageId)
+      const list = ensureMessageList(convId)
+      setMessageList(
+        convId,
+        list.filter((m) => m.id !== messageId)
+      )
       recalculateTotalTokens()
     }
     const conv = conversations.value.find((c) => c.id === convId)
-    if (conv) conv.messageCount = messages.value.length
+    if (conv) conv.messageCount = ensureMessageList(convId).length
   }
 
   async function exportCurrentConversation() {
@@ -417,6 +497,8 @@ export const useChatStore = defineStore('chat', () => {
     currentId,
     messages,
     streaming,
+    streamingByConvId,
+    isConversationStreaming,
     totalTokens,
     loadingConversations,
     loadingMessages,

@@ -26,7 +26,7 @@ function onKbModeChange(value: string | number | boolean) {
       <h2>{{ chatStore.currentConversation?.title || 'AI 对话' }}</h2>
       <span class="chat-header__meta">
         {{ models.find((m) => m.name === selectedModelId)?.modelName || '默认模型' }} ·
-        {{ chatStore.totalTokens || 0 }} tokens
+        {{ chatStore.streaming ? '~' : '' }}{{ chatStore.totalTokens || 0 }} tokens
         <template v-if="selectedKbIds.length">
           · {{ selectedKbIds.length }} 个知识库{{ kbRetrieveOnly ? '仅检索' : 'RAG' }}
         </template>

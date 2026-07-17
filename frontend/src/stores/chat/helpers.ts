@@ -44,3 +44,10 @@ export function loadLastConversationId() {
     return null
   }
 }
+
+/** 与后端 graph_runner 一致：约 4 字符 ≈ 1 token（流式阶段估算用） */
+export function estimateMessageTokens(content: string): number {
+  const text = content.trim()
+  if (!text) return 0
+  return Math.max(1, Math.ceil(text.length / 4))
+}

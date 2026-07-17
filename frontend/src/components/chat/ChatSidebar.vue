@@ -25,7 +25,7 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
             type="button"
             class="sidebar-new-btn"
             title="新建对话"
-            :disabled="chatStore.creatingConversation || chatStore.streaming"
+            :disabled="chatStore.creatingConversation"
             @click="handleNewChat"
           >
             <el-icon><Plus /></el-icon>

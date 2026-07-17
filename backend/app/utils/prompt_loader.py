@@ -45,7 +45,7 @@ def load_prompt(name: str, fallback: str = "") -> str:
     persona = load_persona()
     if "{{PERSONA}}" in content:
         content = content.replace("{{PERSONA}}", persona)
-    elif name in ("system", "summary") and "AgentOne 智能助手" not in content:
+    elif name in ("system", "summary", "prompt_engineer") and "AgentOne 智能助手" not in content:
         content = f"{persona}\n\n{content}"
     return content
 

@@ -244,11 +244,15 @@ export function useChatViewProvider(): ChatViewContext {
     }
   }
 
-  async function scrollToBottom(smooth = true) {
-    await nextTick()
+  async function scrollToBottom(smooth = true, force = true) {
     const el = messagesRef.value
     if (!el) return
-    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+    // If user is already near the bottom (within 100px), keep auto-scrolling
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100
+    await nextTick()
+    if (force || isAtBottom) {
+      el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+    }
   }
 
   async function handleSend() {
@@ -294,7 +298,7 @@ export function useChatViewProvider(): ChatViewContext {
   }
 
   async function handleNewChat() {
-    if (chatStore.creatingConversation || chatStore.streaming) return
+    if (chatStore.creatingConversation) return
     const conv = await chatStore.startNewChat()
     if (route.params.id !== conv.id) {
       await router.push(`/chat/${conv.id}`)
@@ -377,7 +381,7 @@ export function useChatViewProvider(): ChatViewContext {
   watch(
     () => chatStore.messages[chatStore.messages.length - 1]?.content,
     () => {
-      if (chatStore.streaming) void scrollToBottom()
+      if (chatStore.streaming) void scrollToBottom(true, false)
     }
   )
 

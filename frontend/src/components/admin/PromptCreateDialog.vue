@@ -26,18 +26,14 @@ const { createOpen, newPrompt, create } = usePromptsAdmin()
       </el-form-item>
       <el-form-item label="类型">
         <el-select v-model="newPrompt.type" style="width: 100%">
-          <el-option label="自定义（普通 Prompt）" value="custom" />
-          <el-option label="Persona · 人设" value="persona" />
-          <el-option label="System · 系统" value="system" />
-          <el-option label="Planner · 规划" value="planner" />
-          <el-option label="Tool · 工具" value="tool" />
-          <el-option label="Summary · 总结" value="summary" />
+          <el-option label="自定义" value="custom" />
+          <el-option label="Persona" value="persona" />
+          <el-option label="System" value="system" />
+          <el-option label="Planner" value="planner" />
+          <el-option label="Tool" value="tool" />
+          <el-option label="Summary" value="summary" />
           <el-option label="Prompt Engineer" value="prompt_engineer" />
         </el-select>
-        <p class="form-tip">
-          「自定义」= 分类标签，表示这是你自己建的 Prompt，不是系统内置那几类；名称和内容在上方自行填写。
-          内置类型（Persona 等）请改 <code>backend/app/prompts/*.md</code> 后同步，不要在这里新建同名条目。
-        </p>
       </el-form-item>
       <el-form-item label="内容">
         <el-input v-model="newPrompt.content" type="textarea" :rows="10" />
@@ -52,12 +48,3 @@ const { createOpen, newPrompt, create } = usePromptsAdmin()
     </template>
   </el-dialog>
 </template>
-
-<style scoped>
-.form-tip {
-  margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ao-text-muted);
-}
-</style>

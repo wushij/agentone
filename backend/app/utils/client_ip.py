@@ -1,4 +1,4 @@
-"""backend/app/utils/client_ip.py"""
+"""app/utils/client_ip.py"""
 
 from fastapi import Request
 

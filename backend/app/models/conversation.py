@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.models.base import Base
 
 
 def new_conversation_id() -> str:

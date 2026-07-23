@@ -6,7 +6,7 @@ from uuid import uuid4
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from app.core.config import settings
+from app.config.settings import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -44,7 +44,7 @@ def safe_decode_access_token(token: str) -> dict | None:
 
 def _resolve_token_expire_minutes() -> int:
     try:
-        from app.services.settings_store import settings_store
+        from app.services.system.settings_store import settings_store
 
         return int(settings_store.get_all().get("jwtExpireMinutes", settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     except Exception:

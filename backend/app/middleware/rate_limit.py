@@ -1,4 +1,4 @@
-"""backend/app/middleware/rate_limit.py"""
+"""app/middleware/rate_limit.py"""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.common.response import fail
-from app.services.settings_store import settings_store
+from app.services.system.settings_store import settings_store
 from app.utils.client_ip import get_client_ip
+from app.utils.response import fail
 
 _SKIP_PATHS = {"/health", "/api/auth/captcha", "/api/auth/captcha/required", "/api/settings/public"}
 
@@ -24,7 +24,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         settings = settings_store.get_all()
         client_ip = get_client_ip(request)
 
-        # 1. IP 黑名单校验
         blacklist = settings.get("ipBlacklist", "")
         if blacklist:
             blocked_ips = [ip.strip() for ip in blacklist.replace("\n", ",").split(",") if ip.strip()]
@@ -34,7 +33,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     content=fail("您的 IP 已被系统封禁", code=403),
                 )
 
-        # 2. 接口限流校验
         if not settings.get("rateLimitEnabled", True):
             return await call_next(request)
 
@@ -53,7 +51,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     status_code=429,
                     content=fail("请求过于频繁，请稍后再试", code=429),
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            from app.utils.logger import logger
+
+            logger.warning(f"[RateLimitMiddleware] Redis 限流检查失败，放行请求: {exc}")
 
         return await call_next(request)

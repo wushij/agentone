@@ -6,22 +6,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.auth import router as auth_router
-from app.api.chat import router as chat_router
-from app.api.conversation import router as conversation_router
-from app.api.dashboard import router as dashboard_router
-from app.api.files import router as files_router
-from app.api.knowledge import router as knowledge_router
-from app.api.logs import router as logs_router
-from app.api.models import router as models_router
-from app.api.prompts import router as prompts_router
-from app.api.settings import router as settings_router
-from app.api.tools import router as tools_router
-from app.api.users import router as users_router
-from app.api.ws import init_notify_listener, router as ws_router, shutdown_notify_listener
-from app.common.response import fail
+from app.api.router import api_router
+from app.api.ws import init_notify_listener, shutdown_notify_listener
 from app.db import redis as redis_module
+from app.middleware.exception_handler import http_exception_handler, value_error_handler
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_log import RequestLogMiddleware
+from app.utils.response import fail
 
 
 def _print_startup_banner() -> None:
@@ -47,6 +38,12 @@ async def lifespan(app: FastAPI):
         db.close()
 
     await redis_module.init_redis()
+    try:
+        from app.storage import ensure_storage_dirs
+
+        ensure_storage_dirs()
+    except Exception:
+        pass
     await init_notify_listener()
     _print_startup_banner()
     yield
@@ -56,6 +53,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AgentOne", version="1.0.0", lifespan=lifespan)
 
+app.add_middleware(RequestLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -65,33 +63,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(chat_router)
-app.include_router(conversation_router)
-app.include_router(dashboard_router)
-app.include_router(files_router)
-app.include_router(knowledge_router)
-app.include_router(tools_router)
-app.include_router(prompts_router)
-app.include_router(models_router)
-app.include_router(settings_router)
-app.include_router(logs_router)
-app.include_router(users_router)
-app.include_router(ws_router)
+app.include_router(api_router)
 
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(_request: Request, exc: HTTPException):
-    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=fail(detail, code=exc.status_code),
-    )
-
-
-@app.exception_handler(ValueError)
-async def value_error_handler(_request: Request, exc: ValueError):
-    return JSONResponse(status_code=200, content=fail(str(exc), code=400))
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(ValueError, value_error_handler)
 
 
 @app.get("/health")

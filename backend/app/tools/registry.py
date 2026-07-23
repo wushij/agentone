@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from app.tools.base import BaseTool
-from app.tools.calculator import CalculatorTool
-from app.tools.database_tool import DatabaseTool
-from app.tools.file_tool import FileTool
-from app.tools.search import SearchTool
+from app.tools.compute.calculator import CalculatorTool
+from app.tools.database.database import DatabaseTool
+from app.tools.file.file import FileTool
+from app.tools.network.search import SearchTool
 
 _TOOLS: dict[str, BaseTool] = {
     CalculatorTool.name: CalculatorTool(),
@@ -19,7 +19,7 @@ _TOOLS: dict[str, BaseTool] = {
 def is_tool_enabled(name: str) -> bool:
     try:
         from app.db.session import SessionLocal
-        from app.services.tool_service import ToolService
+        from app.services.tool.tool_service import ToolService
 
         db = SessionLocal()
         try:
@@ -51,3 +51,18 @@ def list_tool_infos() -> list[dict[str, str]]:
         }
         for tool in _TOOLS.values()
     ]
+
+
+class ToolRegistry:
+
+    def get(self, name: str) -> BaseTool | None:
+        return get_tool(name)
+
+    def is_enabled(self, name: str) -> bool:
+        return is_tool_enabled(name)
+
+    def list_all(self) -> list[BaseTool]:
+        return list_builtin_tools()
+
+
+tool_registry = ToolRegistry()

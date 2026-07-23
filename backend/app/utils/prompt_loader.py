@@ -1,4 +1,4 @@
-"""Load prompt templates — DB first, then files."""
+"""app/utils/prompt_loader.py — DB first, then files; inject persona when needed."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ def _load_raw_prompt(name: str, fallback: str = "") -> str:
         return _cache[name]
     try:
         from app.db.session import SessionLocal
-        from app.services.prompt_service import PromptService
+        from app.services.prompt.prompt_service import PromptService
 
         db = SessionLocal()
         try:
@@ -25,11 +25,18 @@ def _load_raw_prompt(name: str, fallback: str = "") -> str:
             db.close()
     except Exception:
         pass
-    path = _PROMPTS_DIR / f"{name}.md"
-    if path.exists():
-        content = path.read_text(encoding="utf-8").strip()
-        _cache[name] = content
-        return content
+    # 搜索 prompts 根目录及子目录 (system, templates, examples)
+    candidates = [
+        _PROMPTS_DIR / f"{name}.md",
+        _PROMPTS_DIR / "system" / f"{name}.md",
+        _PROMPTS_DIR / "templates" / f"{name}.md",
+        _PROMPTS_DIR / "examples" / f"{name}.md",
+    ]
+    for path in candidates:
+        if path.exists():
+            content = path.read_text(encoding="utf-8").strip()
+            _cache[name] = content
+            return content
     return fallback
 
 
@@ -51,7 +58,7 @@ def load_prompt(name: str, fallback: str = "") -> str:
 
 
 def clear_prompt_cache(name: str | None = None) -> None:
-    if name:
-        _cache.pop(name, None)
-    else:
+    if name is None:
         _cache.clear()
+    else:
+        _cache.pop(name, None)

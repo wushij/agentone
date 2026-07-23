@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.models.base import Base
 
 
 class PromptHistory(Base):

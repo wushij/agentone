@@ -18,8 +18,8 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.graph.events import AgentStatusEvent
-from app.services.graph_runner import GraphRunner
+from app.core.events.events import AgentStatusEvent
+from app.core.engine.engine import GraphRunner
 
 
 def print_agent_status(event: AgentStatusEvent) -> None:

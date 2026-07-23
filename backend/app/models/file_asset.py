@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.models.base import Base
 
 
 def new_file_id() -> str:

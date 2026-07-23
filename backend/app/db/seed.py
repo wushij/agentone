@@ -36,14 +36,14 @@ def seed_all(db: Session) -> None:
     seed_demo_users(db)
 
     # Seed models
-    from app.services.model_service import ModelService
+    from app.services.llm.model_service import ModelService
     ModelService(db).seed_defaults()
 
     # Seed prompts
-    from app.services.prompt_service import PromptService
+    from app.services.prompt.prompt_service import PromptService
     PromptService(db).seed_defaults()
 
     # Seed tools
-    from app.services.tool_service import ToolService
+    from app.services.tool.tool_service import ToolService
     ToolService(db).seed_defaults()
 

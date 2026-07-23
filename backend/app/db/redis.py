@@ -1,9 +1,9 @@
-"""backend/app/db/redis.py"""
+"""app/db/redis.py"""
 
 from redis.asyncio import Redis
 from redis.asyncio import from_url as redis_from_url
 
-from app.core.config import settings
+from app.config.settings import settings
 
 _redis: Redis | None = None
 

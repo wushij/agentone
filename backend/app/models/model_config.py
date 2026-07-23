@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import BigInteger, Numeric, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.models.base import Base
 
 
 class ModelConfig(Base):

@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result
 from app.utils.response import success
-from app.api.deps import require_permission
+from app.api.v1.deps import require_permission
 from app.db.session import get_db
 from app.models.user import User
 from app.services.prompt.prompt_service import PromptService
 
-router = APIRouter(prefix="/api/prompts", tags=["Prompt"])
+router = APIRouter(prefix="/prompts", tags=["Prompt"])
 
 
 class PromptCreateRequest(BaseModel):

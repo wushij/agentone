@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import { handleUnauthorized } from '@/utils/session'
+import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/constants/storage'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -10,8 +11,7 @@ declare module 'axios' {
   }
 }
 
-export const TOKEN_STORAGE_KEY = 'agentone_access_token'
-export const USER_STORAGE_KEY = 'agentone_user'
+export { TOKEN_STORAGE_KEY, USER_STORAGE_KEY }
 
 export interface ExtendedRequestConfig extends AxiosRequestConfig {
   skipAuth?: boolean

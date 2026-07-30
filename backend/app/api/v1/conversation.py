@@ -5,14 +5,14 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.utils.response import success
-from app.api.deps import get_current_user
+from app.api.v1.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.conversation import ConversationCreateRequest, ConversationUpdateRequest
 from app.schemas.user import BatchDeleteConversationsRequest
 from app.services.conversation.conversation_service import ConversationService
 
-router = APIRouter(prefix="/api/conversations", tags=["会话"])
+router = APIRouter(prefix="/conversations", tags=["会话"])
 
 
 def get_conversation_service(db: Session = Depends(get_db)) -> ConversationService:

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.utils.pagination import clamp_page, page_result
 from app.utils.response import success
 
-from app.api.deps import require_permission
+from app.api.v1.deps import require_permission
 
 from app.db.session import get_db
 
@@ -27,7 +27,7 @@ from app.services.llm.model_service import ModelService
 
 
 
-router = APIRouter(prefix="/api/models", tags=["模型"])
+router = APIRouter(prefix="/models", tags=["模型"])
 
 
 

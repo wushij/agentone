@@ -6,12 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result, slice_page
 from app.utils.response import success
-from app.api.deps import require_permission
+from app.api.v1.deps import require_permission
 from app.db.session import get_db
 from app.models.user import User
 from app.services.tool.tool_service import ToolService
 
-router = APIRouter(prefix="/api/tools", tags=["Tool"])
+router = APIRouter(prefix="/tools", tags=["Tool"])
 
 
 class ToolUpdateRequest(BaseModel):

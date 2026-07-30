@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 
 
-from app.api.deps import resolve_user_from_token
+from app.api.v1.deps import resolve_user_from_token
 
 from app.db.redis import get_redis
 
@@ -28,7 +28,7 @@ from app.services.system.notify_hub import connection_manager, get_notify_hub
 
 
 
-router = APIRouter(prefix="/api/ws", tags=["WebSocket"])
+router = APIRouter(prefix="/ws", tags=["WebSocket"])
 
 
 

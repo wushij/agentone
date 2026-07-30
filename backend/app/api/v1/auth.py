@@ -6,7 +6,7 @@ from redis.asyncio import Redis
 from sqlalchemy.orm import Session
 
 from app.utils.response import success
-from app.api.deps import bearer_scheme, get_current_user
+from app.api.v1.deps import bearer_scheme, get_current_user
 from app.db.redis import get_redis
 from app.db.session import get_db
 from app.models.user import User
@@ -23,7 +23,7 @@ from app.services.auth.login_protection import LoginProtectionService
 from app.services.user.role_service import RoleService
 from app.utils.client_ip import get_client_ip
 
-router = APIRouter(prefix="/api/auth", tags=["认证"])
+router = APIRouter(prefix="/auth", tags=["认证"])
 
 
 def get_auth_service(

@@ -2,8 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Lock, User } from '@element-plus/icons-vue'
-import AuthCaptchaField from '@/components/AuthCaptchaField.vue'
+import { Lock, User, UserFilled } from '@element-plus/icons-vue'
+import AuthCaptchaField from '@/components/auth/AuthCaptchaField.vue'
 import { getCaptcha, getCaptchaRequired, register as registerApi } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 import { toCaptchaDataUrl } from '@/utils/captcha'
@@ -117,7 +117,7 @@ onMounted(() => {
       </el-form-item>
 
       <el-form-item v-if="mode === 'register'">
-        <el-input v-model="nickname" placeholder="昵称（可选）" size="large" />
+        <el-input v-model="nickname" placeholder="昵称（可选）" size="large" :prefix-icon="UserFilled" />
       </el-form-item>
 
       <el-form-item>

@@ -356,7 +356,7 @@ class RagService:
         if not unique_ids:
             return []
 
-        from app.api.knowledge import _load_kb
+        from app.api.v1.knowledge import _load_kb
 
         kb_list = _load_kb()
         kb_name_map = {k["id"]: k.get("name", k["id"]) for k in kb_list}
@@ -387,7 +387,7 @@ class RagService:
     @staticmethod
     async def fetch_kb_chunks(kb_id: str, query: str) -> list[dict]:
         """Load KB config and run vector retrieval for chat."""
-        from app.api.knowledge import _load_kb
+        from app.api.v1.knowledge import _load_kb
         from app.db.session import SessionLocal
         from app.services.llm.model_service import ModelService
 

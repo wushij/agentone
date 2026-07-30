@@ -8,13 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result
 from app.utils.response import success
-from app.api.deps import get_current_user
+from app.api.v1.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.services.system.audit_log_service import AuditLogService
 from app.services.file.file_service import FileService
 
-router = APIRouter(prefix="/api/files", tags=["文件中心"])
+router = APIRouter(prefix="/files", tags=["文件中心"])
 
 
 @router.get("")

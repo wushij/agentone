@@ -120,7 +120,7 @@ cd frontend
 npm install
 npm run dev
 ```
-访问本地开发页面：`http://localhost:3088`。
+访问本地开发页面：`http://localhost:3000`。
 
 ---
 

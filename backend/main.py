@@ -7,11 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
-from app.api.ws import init_notify_listener, shutdown_notify_listener
+from app.api.v1.ws import init_notify_listener, shutdown_notify_listener
 from app.db import redis as redis_module
 from app.middleware.exception_handler import http_exception_handler, value_error_handler
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_log import RequestLogMiddleware
+from app.utils.logger import logger
 from app.utils.response import fail
 
 
@@ -42,8 +43,8 @@ async def lifespan(app: FastAPI):
         from app.storage import ensure_storage_dirs
 
         ensure_storage_dirs()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Failed to initialize storage directories: {e}")
     await init_notify_listener()
     _print_startup_banner()
     yield
@@ -53,11 +54,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AgentOne", version="1.0.0", lifespan=lifespan)
 
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+]
+
 app.add_middleware(RequestLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result, slice_page
 from app.utils.response import success
-from app.api.deps import get_current_user
+from app.api.v1.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.services.file.file_service import FileService
@@ -19,7 +19,7 @@ from app.services.llm.model_service import ModelService
 from app.services.rag.rag_service import RagService
 from app.storage import data_root, runtime_json
 
-router = APIRouter(prefix="/api/knowledge", tags=["知识库管理"])
+router = APIRouter(prefix="/knowledge", tags=["知识库管理"])
 
 
 def _load_kb() -> list[dict]:

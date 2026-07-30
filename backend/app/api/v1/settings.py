@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.utils.response import success
-from app.api.deps import require_permission
+from app.api.v1.deps import require_permission
 from app.models.user import User
 from app.services.system.settings_store import settings_store
 
-router = APIRouter(prefix="/api/settings", tags=["系统配置"])
+router = APIRouter(prefix="/settings", tags=["系统配置"])
 
 
 class SettingsUpdateRequest(BaseModel):

@@ -22,7 +22,7 @@ from app.utils.response import success
 
 from app.config.settings import get_settings
 
-from app.api.deps import get_current_user
+from app.api.v1.deps import get_current_user
 
 from app.db.session import get_db
 
@@ -39,7 +39,7 @@ from app.services.llm.model_service import ModelService
 from app.services.system.settings_store import settings_store
 from app.services.user.user_stats_service import get_deleted_tokens
 
-router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 

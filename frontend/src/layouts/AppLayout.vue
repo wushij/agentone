@@ -6,7 +6,7 @@ import { useRoute } from 'vue-router'
 
 import AppHeader from '@/components/layout/AppHeader.vue'
 
-import AppSidebar from '@/components/AppSidebar.vue'
+import AppSidebar from '@/components/layout/AppSidebar.vue'
 
 import { useUserStore } from '@/stores/user'
 

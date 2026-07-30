@@ -5,14 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result
 from app.utils.response import success
-from app.api.deps import get_current_user, require_permission
+from app.api.v1.deps import get_current_user, require_permission
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserCreateRequest, UserUpdateRequest
 from app.services.system.audit_log_service import AuditLogService
 from app.services.user.user_service import UserService
 
-router = APIRouter(prefix="/api/users", tags=["用户管理"])
+router = APIRouter(prefix="/users", tags=["用户管理"])
 
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:

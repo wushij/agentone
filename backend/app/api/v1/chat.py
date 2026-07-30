@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.v1.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.services.system.audit_log_service import AuditLogService
@@ -17,7 +17,7 @@ from app.services.conversation.conversation_service import ConversationService
 from app.core.engine.engine import get_engine
 from app.services.chat.sse_lock import get_sse_lock_service
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 def _consume_stream_event(

@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result
 from app.utils.response import success
-from app.api.deps import require_permission
+from app.api.v1.deps import require_permission
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.tool_log import ToolLog
 from app.models.user import User
 from app.services.system.audit_log_service import AuditLogService
 
-router = APIRouter(prefix="/api/logs", tags=["日志中心"])
+router = APIRouter(prefix="/logs", tags=["日志中心"])
 
 
 def _fmt_audit(row: AuditLog) -> dict:

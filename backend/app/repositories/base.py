@@ -33,13 +33,16 @@ class BaseRepository(Generic[ModelType]):
         stmt = select(self.model).offset(skip).limit(limit)
         return session.scalars(stmt).all()
 
-    def create(self, db_or_obj: Any = None, *, obj_in: dict[str, Any] | None = None) -> ModelType:
+    def create(self, db_or_obj: Any = None, *, obj_in: dict[str, Any] | None = None, **kwargs: Any) -> ModelType:
         if isinstance(db_or_obj, Session):
             session = db_or_obj
-            data = obj_in or {}
+            data = obj_in if obj_in is not None else kwargs
+        elif isinstance(db_or_obj, dict):
+            session = self.db
+            data = db_or_obj
         else:
             session = self.db
-            data = db_or_obj or obj_in or {}
+            data = obj_in if obj_in is not None else kwargs
         if not session:
             raise ValueError("Session is required")
         db_obj = self.model(**data)

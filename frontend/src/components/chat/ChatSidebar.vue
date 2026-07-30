@@ -9,35 +9,52 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
 <template>
   <aside class="chat-sidebar" :class="{ 'chat-sidebar--collapsed': historyCollapsed }">
     <div class="sidebar-surface">
-      <header class="sidebar-header">
-        <div v-show="!historyCollapsed" class="sidebar-heading">对话历史</div>
-        <div class="sidebar-header-actions">
-          <button
-            v-if="!historyCollapsed"
-            type="button"
-            class="sidebar-fold-btn"
-            title="收起"
-            @click="toggleHistoryCollapsed(true)"
-          >
-            <el-icon><Fold /></el-icon>
-          </button>
-          <button
-            type="button"
-            class="sidebar-new-btn"
-            title="新建对话"
-            :disabled="chatStore.creatingConversation"
-            @click="handleNewChat"
-          >
-            <el-icon><Plus /></el-icon>
-            <span v-show="!historyCollapsed">新对话</span>
-          </button>
-        </div>
-      </header>
+      <!-- 展开模式：固定内布局宽度 258px，配合延迟淡入，绝无文字挤压卡顿 -->
+      <div class="sidebar-expanded-content" :class="{ 'is-hidden': historyCollapsed }">
+        <header class="sidebar-header">
+          <div class="sidebar-heading">对话历史</div>
+          <div class="sidebar-header-actions">
+            <button
+              type="button"
+              class="sidebar-fold-btn"
+              title="收起历史"
+              @click="toggleHistoryCollapsed(true)"
+            >
+              <el-icon><Fold /></el-icon>
+            </button>
+            <button
+              type="button"
+              class="sidebar-new-btn"
+              title="新建对话"
+              :disabled="chatStore.creatingConversation"
+              @click="handleNewChat"
+            >
+              <el-icon><Plus /></el-icon>
+              <span>新对话</span>
+            </button>
+          </div>
+        </header>
 
-      <ChatConversationList v-show="!historyCollapsed" />
+        <ChatConversationList />
+      </div>
 
-      <div v-show="historyCollapsed" class="sidebar-rail">
-        <button type="button" class="sidebar-rail-btn" title="展开历史" @click="toggleHistoryCollapsed(false)">
+      <!-- 收起模式：折叠侧边栏窄条按钮 -->
+      <div class="sidebar-rail" :class="{ 'is-hidden': !historyCollapsed }">
+        <button
+          type="button"
+          class="sidebar-rail-new-btn"
+          title="新建对话"
+          :disabled="chatStore.creatingConversation"
+          @click="handleNewChat"
+        >
+          <el-icon><Plus /></el-icon>
+        </button>
+        <button
+          type="button"
+          class="sidebar-rail-btn"
+          title="展开历史"
+          @click="toggleHistoryCollapsed(false)"
+        >
           <el-icon><Memo /></el-icon>
         </button>
       </div>
@@ -50,7 +67,8 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
   flex: 0 0 260px;
   width: 260px;
   min-width: 0;
-  transition: flex-basis 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: flex-basis 0.32s cubic-bezier(0.16, 1, 0.3, 1), width 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 .chat-sidebar--collapsed {
   flex-basis: 62px;
@@ -59,6 +77,7 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
 
 .sidebar-surface {
   height: 100%;
+  position: relative;
   display: flex;
   flex-direction: column;
   border-radius: 24px;
@@ -66,6 +85,24 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
   background: var(--ao-panel-bg);
   box-shadow: 0 16px 40px var(--ao-panel-shadow);
   overflow: hidden;
+}
+
+.sidebar-expanded-content {
+  width: 258px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1) 0.06s, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.sidebar-expanded-content.is-hidden {
+  opacity: 0;
+  transform: translateX(-12px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s 0.14s;
 }
 
 .sidebar-header {
@@ -77,16 +114,12 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
   border-bottom: 1px solid var(--ao-panel-border);
   flex-shrink: 0;
 }
-.chat-sidebar--collapsed .sidebar-header {
-  flex-direction: column;
-  justify-content: center;
-  padding: 14px 10px;
-}
 
 .sidebar-heading {
   font-weight: 700;
   font-size: 14px;
   color: var(--ao-text-primary);
+  white-space: nowrap;
 }
 
 .sidebar-header-actions {
@@ -94,9 +127,6 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-.chat-sidebar--collapsed .sidebar-header-actions {
-  flex-direction: column;
 }
 
 .sidebar-fold-btn {
@@ -132,13 +162,8 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
+  white-space: nowrap;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.chat-sidebar--collapsed .sidebar-new-btn {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border-radius: 10px;
 }
 .sidebar-new-btn:hover {
   transform: translateY(-1px);
@@ -152,18 +177,60 @@ const { chatStore, historyCollapsed, toggleHistoryCollapsed, handleNewChat } = u
 }
 
 .sidebar-rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 12px 10px 16px;
-  flex: 1;
+  gap: 12px;
+  padding: 14px 10px 16px;
+  box-sizing: border-box;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1) 0.06s, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
 }
+.sidebar-rail.is-hidden {
+  opacity: 0;
+  transform: translateX(-10px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s 0.14s;
+}
+
+.sidebar-rail-new-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 12px;
+  background: var(--theme-primary-gradient);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+}
+.sidebar-rail-new-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+}
+.sidebar-rail-new-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .sidebar-rail-btn {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--ao-panel-border-strong);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--ao-panel-btn-bg);
   color: var(--theme-primary);
   display: inline-flex;

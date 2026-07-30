@@ -5,7 +5,7 @@ import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
 import { fetchAvailableModels } from '@/api/chat'
 import { fetchAllKnowledge, uploadFile, type KnowledgeItem } from '@/api/admin'
-import { confirmDelete } from '@/utils/confirm'
+import { confirmAction, confirmDelete } from '@/utils/confirm'
 import type { ConversationSummary, KbMode } from '@/types'
 
 const HISTORY_PREVIEW_COUNT = 8
@@ -219,8 +219,28 @@ export function useChatViewProvider(): ChatViewContext {
   }
 
   async function handleToggleArchive(conv: ConversationSummary) {
-    const nextState = !conv.isArchived
-    await chatStore.archiveConversation(conv.id, nextState)
+    const isArchiving = !conv.isArchived
+    const title = isArchiving ? '归档对话' : '恢复对话'
+    const message = isArchiving
+      ? `确认归档对话「${conv.title || '未命名'}」吗？归档后可在“已归档”列表中查看。`
+      : `确认将对话「${conv.title || '未命名'}」重新恢复到活跃列表中吗？`
+    const confirmButtonText = isArchiving ? '归档' : '恢复'
+
+    const ok = await confirmAction({
+      title,
+      message,
+      confirmButtonText,
+      cancelButtonText: '取消',
+      type: 'info'
+    })
+    if (!ok) return
+
+    try {
+      await chatStore.archiveConversation(conv.id, isArchiving)
+      ElMessage.success(isArchiving ? '已归档对话' : '已恢复对话')
+    } catch {
+      ElMessage.error(isArchiving ? '归档失败' : '恢复失败')
+    }
   }
 
   async function loadKnowledge() {

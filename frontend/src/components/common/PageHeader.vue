@@ -40,18 +40,23 @@ const sectionLabel = computed(() => props.section ?? (route.meta.section as stri
   border-radius: 10px;
   color: #fff;
   overflow: hidden;
-  background: linear-gradient(
-    135deg,
-    var(--theme-primary, #4f46e5) 0%,
-    var(--theme-primary-hover, #4338ca) 100%
+  background: var(
+    --theme-primary-gradient,
+    linear-gradient(
+      135deg,
+      var(--theme-primary, #4f46e5) 0%,
+      var(--theme-primary-hover, #4338ca) 100%
+    )
   );
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .page-banner__pattern {
   position: absolute;
   inset: 0;
-  opacity: 0.06;
+  opacity: 0.08;
   background-image: radial-gradient(circle at 20% 50%, #fff 1px, transparent 1px);
   background-size: 24px 24px;
   pointer-events: none;
@@ -105,7 +110,7 @@ const sectionLabel = computed(() => props.section ?? (route.meta.section as stri
   font-size: 13px;
   line-height: 1.4;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.85);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -143,5 +148,64 @@ const sectionLabel = computed(() => props.section ?? (route.meta.section as stri
   color: var(--theme-primary, #4f46e5) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28) !important;
   transform: translateY(-1px);
+}
+
+.page-banner__actions :deep(.el-select__wrapper),
+.page-banner__actions :deep(.el-select .el-input__wrapper) {
+  height: 34px !important;
+  min-height: 34px !important;
+  background: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  border-radius: 999px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+  padding: 0 14px !important;
+  transform: none !important;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.page-banner__actions :deep(.el-select__wrapper:hover),
+.page-banner__actions :deep(.el-select .el-input__wrapper:hover) {
+  background: #f8fafc !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18) !important;
+  transform: none !important;
+}
+
+.page-banner__actions :deep(.el-select__wrapper.is-focused),
+.page-banner__actions :deep(.el-select__wrapper.is-filterable),
+.page-banner__actions :deep(.el-select .el-input__wrapper.is-focus) {
+  background: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 3px 10px rgba(0, 0, 0, 0.2) !important;
+  transform: none !important;
+}
+
+.page-banner__actions :deep(.el-select__selected-item),
+.page-banner__actions :deep(.el-select__placeholder),
+.page-banner__actions :deep(.el-select__placeholder.is-transparent),
+.page-banner__actions :deep(.el-select .el-input__inner) {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  text-shadow: none !important;
+}
+
+.page-banner__actions :deep(.el-select .el-input__inner::placeholder) {
+  color: #64748b !important;
+}
+
+.page-banner__actions :deep(.el-select__caret),
+.page-banner__actions :deep(.el-select__icon),
+.page-banner__actions :deep(.el-select__prefix),
+.page-banner__actions :deep(.el-select__suffix),
+.page-banner__actions :deep(.el-select .el-input__suffix-inner),
+.page-banner__actions :deep(.el-select .el-input__prefix-inner),
+.page-banner__actions :deep(.el-icon) {
+  color: #334155 !important;
+  font-size: 14px !important;
+  opacity: 1 !important;
 }
 </style>

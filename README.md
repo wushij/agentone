@@ -63,21 +63,20 @@ AgentOne/
 │       └── workflows/                   # 场景工作流 (Chat, RAG, Coding, Research)
 ├── frontend/                            # Vue 3 前端工程
 │   └── src/                             # 前端源码
-│       ├── api/                         # API 请求封装 (modules/ 细化)
-│       ├── components/                  # UI 组件库 (base/ 原子组件包)
+│       ├── api/                         # API 请求封装 (axios 解包、静默刷新与模块化)
+│       ├── components/                  # UI 组件包 (common/admin/auth/chat/dashboard/layout/profile)
 │       ├── composables/                 # Vue 3 组合式逻辑复用函数 (useChatView, useDashboard...)
-│       ├── constants/                   # 前端全局常量
+│       ├── constants/                   # 前端全局常量 (storage key 单一来源)
 │       ├── directives/                  # Vue 自定义指令集 (v-permission, v-copy, v-debounce)
 │       ├── enums/                       # 前端业务枚举 (ChatStatus, MessageRole...)
 │       ├── layouts/                     # 系统 Shell 整体布局 (AppLayout.vue)
 │       ├── plugins/                     # 插件集中注册器 (Pinia, Router, Directives...)
 │       ├── router/                      # Vue Router 路由配置与全局守卫
-│       ├── services/                    # 业务服务解耦层 (ChatService, UserService...)
 │       ├── stores/                      # Pinia 状态集中管理 (User, Chat, Agent, Theme)
-│       ├── styles/                      # 样式系统 (global.css, theme.css, chat-markdown.css)
+│       ├── styles/                      # 样式系统与主题令牌 (theme/ tokens/ presets/ dark-vars)
 │       ├── types/                       # TypeScript 类型声明库
 │       ├── utils/                       # 前端实用工具函数
-│       ├── views/                       # 视图组件 (chat/, dashboard/, login/, profile/, admin/)
+│       ├── views/                       # 页面视图组件 (ChatView, Dashboard, Login, admin/, agent/)
 │       └── workers/                     # Web Worker 后台计算线程 (markdown.worker.ts)
 ├── sql/                                 # 数据库结构与初始化脚本
 │   ├── init.sql                         # 一键建库建表与演示账号初始化 SQL

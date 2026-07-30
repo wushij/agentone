@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight } from '@element-plus/icons-vue'
+import { ArrowRight, ChatDotRound } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { getWorkflowSnapshot } from '@/api/conversation'
 import { formatDateTime } from '@/utils/datetime'
@@ -253,11 +253,14 @@ const selectedNodeIndex = computed(() => {
       <template #action>
         <el-select
           v-model="selectedConvId"
-          placeholder="选择会话"
+          placeholder="选择监控会话"
           filterable
           class="conv-select"
           @change="onConvChange"
         >
+          <template #prefix>
+            <el-icon><ChatDotRound /></el-icon>
+          </template>
           <el-option
             v-for="conv in chatStore.conversations"
             :key="conv.id"

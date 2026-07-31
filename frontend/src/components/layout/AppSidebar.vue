@@ -13,6 +13,7 @@ import {
   MagicStick,
   Setting,
   Tools,
+  Timer,
   User,
   Cpu,
   UserFilled
@@ -43,6 +44,7 @@ const coreGroup: MenuGroup = {
     { path: '/dashboard', label: '首页驾驶舱', icon: DataBoard, permission: 'chat:read' },
     { path: '/chat', label: 'AI 对话', icon: ChatDotRound, permission: 'chat:read' },
     { path: '/memories', label: 'AI 记忆', icon: MagicStick, permission: 'chat:read' },
+    { path: '/tasks', label: '任务中心', icon: Timer, permission: 'chat:read' },
     { path: '/agent', label: 'Agent 工作流', icon: Connection, permission: 'chat:read' }
   ]
 }

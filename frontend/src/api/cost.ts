@@ -1,7 +1,7 @@
 import request from './request'
 
 export interface CostGroupRow {
-  key: string
+  groupKey: string
   costUsd: number
   tokens: number
 }

@@ -79,6 +79,16 @@ def update_prompt(
     row = svc.update(name, body.content)
     if row is None:
         raise ValueError("Prompt 不存在")
+    try:
+        from app.services.system.audit_log_service import AuditLogService
+        AuditLogService(db).write(
+            user_id=user.id,
+            module="system",
+            action="update_prompt",
+            detail=f"更新了系统提示词 [{name}] 内容",
+        )
+    except Exception:
+        pass
     return success(svc.to_dict(row), message="保存成功")
 
 

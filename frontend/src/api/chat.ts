@@ -2,7 +2,7 @@ import request from './request'
 import { TOKEN_STORAGE_KEY } from './request'
 import type { AvailableModel, ChatRegenerateRequest, ChatStreamRequest } from '@/types'
 
-export type SseEventType = 'token' | 'tool_start' | 'tool_end' | 'usage' | 'done' | 'error' | 'step' | 'title' | 'sources'
+export type SseEventType = 'token' | 'tool_start' | 'tool_end' | 'usage' | 'done' | 'error' | 'step' | 'title' | 'sources' | 'artifact'
 
 export interface SseTokenPayload {
   conversationId: string
@@ -77,6 +77,21 @@ export interface SseSourcesPayload {
   sources: SseSourceRef[]
 }
 
+export interface SseArtifactRef {
+  id: string
+  type: string
+  title: string
+  content: string
+  language?: string
+  version?: number
+}
+
+export interface SseArtifactPayload {
+  conversationId: string
+  messageId: string
+  artifact: SseArtifactRef
+}
+
 export interface ChatStreamHandlers {
   onToken?: (payload: SseTokenPayload) => void
   onStep?: (payload: SseStepPayload) => void
@@ -85,6 +100,7 @@ export interface ChatStreamHandlers {
   onUsage?: (payload: SseUsagePayload) => void
   onTitle?: (payload: SseTitlePayload) => void
   onSources?: (payload: SseSourcesPayload) => void
+  onArtifact?: (payload: SseArtifactPayload) => void
   onDone?: (payload: SseDonePayload) => void
   onError?: (payload: SseErrorPayload) => void
 }
@@ -98,7 +114,7 @@ function getApiBase(): string {
   return import.meta.env.VITE_API_BASE_URL || '/api'
 }
 
-function parseSseChunk(buffer: string): { events: ParsedSseEvent[]; rest: string } {
+export function parseSseChunk(buffer: string): { events: ParsedSseEvent[]; rest: string } {
   const events: ParsedSseEvent[] = []
   const blocks = buffer.split('\n\n')
   const rest = blocks.pop() ?? ''
@@ -154,6 +170,9 @@ function dispatchEvent(event: ParsedSseEvent, handlers: ChatStreamHandlers) {
       break
     case 'sources':
       handlers.onSources?.(payload as SseSourcesPayload)
+      break
+    case 'artifact':
+      handlers.onArtifact?.(payload as SseArtifactPayload)
       break
     case 'done':
       handlers.onDone?.(payload as SseDonePayload)

@@ -60,11 +60,33 @@ async def _on_agent_status_audit(event: EventMessage) -> None:
         db = SessionLocal()
         try:
             node = str(data.get("node") or "")
+            label_map = {
+                "planner": "任务规划器",
+                "researcher": "意图与上下文分析器",
+                "tool": "Agent 工具节点",
+                "reviewer": "回答质量审核员",
+                "unsupported": "未支持模式处理",
+                "error_handler": "异常降级处理",
+            }
+            node_label = label_map.get(node, node)
+            detail_content = str(data.get("detail") or data.get("tool") or "").strip()
+            if not detail_content or detail_content == node:
+                if node == "reviewer":
+                    detail_content = "完成最终回答风控与质量审核，校验符合交付标准"
+                elif node == "planner":
+                    detail_content = "分析用户输入，拆解生成 Agent 执行步骤与拓扑图"
+                elif node == "researcher":
+                    detail_content = "检索知识库上下文并完成意图路由分发"
+                elif node == "tool":
+                    detail_content = "调用底层关联工具完成功能计算"
+                else:
+                    detail_content = f"完成 {node_label} 阶段执行"
+
             AuditLogService(db).write(
                 user_id=int(user_id),
                 module="agent",
                 action=f"{node}:{status}",
-                detail=str(data.get("tool") or node),
+                detail=f"【{node_label}】{detail_content}",
                 status="success" if status == "success" else "error",
             )
         finally:

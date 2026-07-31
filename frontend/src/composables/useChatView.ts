@@ -6,13 +6,25 @@ import { useUserStore } from '@/stores/user'
 import { fetchAvailableModels } from '@/api/chat'
 import { fetchAllKnowledge, uploadFile, type KnowledgeItem } from '@/api/admin'
 import { confirmAction, confirmDelete } from '@/utils/confirm'
-import type { ConversationSummary, KbMode } from '@/types'
+import type { AgentMode, ConversationSummary, KbMode, ThinkingLevel } from '@/types'
 
 const HISTORY_PREVIEW_COUNT = 8
 const HISTORY_COLLAPSED_KEY = 'agentone-chat-history-collapsed'
 const KB_MODE_KEY = 'agentone-kb-mode'
 const KB_IDS_KEY = 'agentone-selected-kb-ids'
+const AGENT_MODE_KEY = 'agentone-agent-mode'
+const THINKING_LEVEL_KEY = 'agentone-thinking-level'
 const MAX_MOUNTED_KBS = 10
+
+function loadStoredAgentMode(): AgentMode {
+  const raw = localStorage.getItem(AGENT_MODE_KEY)
+  return raw === 'multi' || raw === 'plan' ? raw : 'standard'
+}
+
+function loadStoredThinkingLevel(): ThinkingLevel {
+  const raw = localStorage.getItem(THINKING_LEVEL_KEY)
+  return raw === 'fast' || raw === 'extended' ? raw : 'standard'
+}
 
 function loadStoredKbIds(): string[] {
   try {
@@ -39,8 +51,11 @@ export interface ChatViewContext {
   inputText: Ref<string>
   messagesRef: Ref<HTMLElement | null>
   enableTools: Ref<boolean>
+  agentMode: Ref<AgentMode>
+  setAgentMode: (mode: AgentMode) => void
   models: Ref<ModelOption[]>
   selectedModelId: Ref<string>
+  thinkingLevel: Ref<ThinkingLevel>
   kbs: Ref<KnowledgeItem[]>
   selectedKbIds: Ref<string[]>
   kbRetrieveOnly: Ref<boolean>
@@ -90,11 +105,53 @@ export function useChatViewProvider(): ChatViewContext {
   const chatStore = useChatStore()
   const userStore = useUserStore()
 
-  const inputText = ref('')
+  const DRAFT_KEY_PREFIX = 'agentone-chat-draft-'
+  function getDraftKey(convId: string | null): string {
+    return `${DRAFT_KEY_PREFIX}${convId || 'new'}`
+  }
+  function loadDraft(convId: string | null): string {
+    try {
+      return sessionStorage.getItem(getDraftKey(convId)) || ''
+    } catch {
+      return ''
+    }
+  }
+  function saveDraft(convId: string | null, text: string) {
+    try {
+      const key = getDraftKey(convId)
+      if (text) {
+        sessionStorage.setItem(key, text)
+      } else {
+        sessionStorage.removeItem(key)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const inputText = ref(loadDraft(chatStore.currentId))
   const messagesRef = ref<HTMLElement | null>(null)
   const enableTools = ref(true)
+  const agentMode = ref<AgentMode>(loadStoredAgentMode())
+
+  // 会话切换时自动保存旧草稿，加载新草稿
+  watch(
+    () => chatStore.currentId,
+    (newId, oldId) => {
+      if (oldId !== newId) {
+        saveDraft(oldId, inputText.value)
+        inputText.value = loadDraft(newId)
+      }
+    }
+  )
+
+  // 实时同步当前输入框文本到草稿
+  watch(inputText, (val) => {
+    saveDraft(chatStore.currentId, val)
+  })
   const models = ref<ModelOption[]>([])
   const selectedModelId = ref('')
+  const thinkingLevel = ref<ThinkingLevel>(loadStoredThinkingLevel())
   const kbs = ref<KnowledgeItem[]>([])
   const selectedKbIds = ref<string[]>(loadStoredKbIds())
   const kbRetrieveOnly = ref(localStorage.getItem(KB_MODE_KEY) === 'retrieve')
@@ -131,6 +188,33 @@ export function useChatViewProvider(): ChatViewContext {
       /* ignore */
     }
   }
+
+  function setAgentMode(mode: AgentMode) {
+    agentMode.value = mode
+    try {
+      localStorage.setItem(AGENT_MODE_KEY, mode)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** 将当前 Agent 模式映射为请求参数（standard 不传，保持默认路径） */
+  function resolveAgentModeOptions() {
+    return {
+      multiAgent: agentMode.value === 'multi' || undefined,
+      planExecute: agentMode.value === 'plan' || undefined,
+      thinkingLevel: thinkingLevel.value
+    }
+  }
+
+  // 扩展思考档位持久化（v-model 直接绑定到 ref，watch 落盘）
+  watch(thinkingLevel, (level) => {
+    try {
+      localStorage.setItem(THINKING_LEVEL_KEY, level)
+    } catch {
+      /* ignore */
+    }
+  })
 
   let kbClearGuard = false
 
@@ -295,7 +379,8 @@ export function useChatViewProvider(): ChatViewContext {
       enableTools: enableTools.value,
       modelId: selectedModelId.value || undefined,
       kbIds: selectedKbIds.value.length ? [...selectedKbIds.value] : undefined,
-      kbMode: resolveKbMode()
+      kbMode: resolveKbMode(),
+      ...resolveAgentModeOptions()
     })
     if (convId && route.params.id !== convId) {
       await router.replace(`/chat/${convId}`)
@@ -362,7 +447,8 @@ export function useChatViewProvider(): ChatViewContext {
       enableTools: enableTools.value,
       modelId: selectedModelId.value || undefined,
       kbIds: selectedKbIds.value.length ? [...selectedKbIds.value] : undefined,
-      kbMode: resolveKbMode()
+      kbMode: resolveKbMode(),
+      ...resolveAgentModeOptions()
     })
     await scrollToBottom()
   }
@@ -373,8 +459,18 @@ export function useChatViewProvider(): ChatViewContext {
     await chatStore.removeMessage(messageId)
   }
 
-  function handleExport() {
-    void chatStore.exportCurrentConversation()
+  async function handleExport() {
+    const title = chatStore.currentConversation?.title || '此对话'
+    const ok = await confirmAction({
+      title: '导出 Markdown 确认',
+      message: `确认导出对话「${title}」的完整聊天记录为 Markdown 文件吗？`,
+      confirmButtonText: '导出',
+      cancelButtonText: '取消',
+      type: 'info'
+    })
+    if (!ok) return
+
+    await chatStore.exportCurrentConversation()
   }
 
   function formatSessionTime(value: string) {
@@ -463,8 +559,11 @@ export function useChatViewProvider(): ChatViewContext {
     inputText,
     messagesRef,
     enableTools,
+    agentMode,
+    setAgentMode,
     models,
     selectedModelId,
+    thinkingLevel,
     kbs,
     selectedKbIds,
     kbRetrieveOnly,

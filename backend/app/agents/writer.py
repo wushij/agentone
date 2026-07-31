@@ -38,8 +38,11 @@ class UsageCollector:
 
 
 def _llm_for_state(state: AgentState):
-    model_id = (state.get("metadata") or {}).get("model_id")
-    return create_chat_model(model=model_id)
+    meta = state.get("metadata") or {}
+    return create_chat_model(
+        model=meta.get("model_id"),
+        thinking_level=str(meta.get("thinking_level") or "standard"),
+    )
 
 
 def _build_summarizer_messages(state: AgentState) -> list:

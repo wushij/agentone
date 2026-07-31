@@ -6,6 +6,8 @@ from __future__ import annotations
 
 
 
+import asyncio
+
 import json
 
 
@@ -66,7 +68,27 @@ def _validate_topics(user_id: int, db: Session, topics: list[str]) -> tuple[list
 
         if topic.startswith("task:"):
 
-            allowed.append(topic)
+            task_id = topic.split(":", 1)[1]
+
+            # 安全加固（§17.4）：校验任务属主，避免跨用户订阅他人任务进度
+
+            try:
+
+                from app.models.agent_task import AgentTask
+
+                task = db.get(AgentTask, task_id)
+
+                if task and task.user_id == user_id:
+
+                    allowed.append(topic)
+
+                else:
+
+                    denied.append(topic)
+
+            except Exception:
+
+                denied.append(topic)
 
             continue
 
@@ -84,21 +106,53 @@ async def notify_websocket(
 
     websocket: WebSocket,
 
-    token: str = Query(...),
+    token: str = Query(default=""),
 
 ):
 
     db: Session = SessionLocal()
 
+    accepted_early = False
+
     try:
 
         redis = await get_redis()
 
-        user = await resolve_user_from_token(token, db, redis)
+        auth_token = token
+
+        # 首帧鉴权（§17.4）：URL query 未携 token 时，先 accept 再等首帧 auth 帧取 token
+
+        if not auth_token:
+
+            await websocket.accept()
+
+            accepted_early = True
+
+            try:
+
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=10)
+
+                first = json.loads(raw)
+
+                if first.get("type") == "auth":
+
+                    auth_token = (first.get("payload") or {}).get("token") or ""
+
+            except Exception:
+
+                auth_token = ""
+
+        user = await resolve_user_from_token(auth_token, db, redis)
 
     except Exception:
 
-        await websocket.close(code=4001)
+        try:
+
+            await websocket.close(code=4001)
+
+        except Exception:
+
+            pass
 
         db.close()
 
@@ -106,7 +160,7 @@ async def notify_websocket(
 
 
 
-    await connection_manager.connect(user.id, websocket)
+    await connection_manager.connect(user.id, websocket, accept=not accepted_early)
 
     try:
 

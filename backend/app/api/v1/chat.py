@@ -119,6 +119,9 @@ class ChatStreamRequest(BaseModel):
     kb_ids: list[str] = Field(default_factory=list, alias="kbIds")
     kb_mode: str = Field(default="generate", alias="kbMode")
     enable_tools: bool = Field(default=True, alias="enableTools")
+    multi_agent: bool = Field(default=False, alias="multiAgent")
+    plan_execute: bool = Field(default=False, alias="planExecute")
+    thinking_level: str = Field(default="standard", alias="thinkingLevel")
 
     model_config = {"populate_by_name": True}
 
@@ -131,6 +134,9 @@ class ChatRegenerateRequest(BaseModel):
     kb_ids: list[str] = Field(default_factory=list, alias="kbIds")
     kb_mode: str = Field(default="generate", alias="kbMode")
     enable_tools: bool = Field(default=True, alias="enableTools")
+    multi_agent: bool = Field(default=False, alias="multiAgent")
+    plan_execute: bool = Field(default=False, alias="planExecute")
+    thinking_level: str = Field(default="standard", alias="thinkingLevel")
 
     model_config = {"populate_by_name": True}
 
@@ -200,6 +206,9 @@ async def chat_stream(
                 model_id=body.model_id,
                 kb_ids=kb_ids,
                 kb_mode=body.kb_mode,
+                multi_agent=body.multi_agent,
+                plan_execute=body.plan_execute,
+                thinking_level=body.thinking_level,
             ):
                 if await request.is_disconnected():
                     break
@@ -357,6 +366,9 @@ async def chat_regenerate(
                 model_id=body.model_id,
                 kb_ids=kb_ids,
                 kb_mode=body.kb_mode,
+                multi_agent=body.multi_agent,
+                plan_execute=body.plan_execute,
+                thinking_level=body.thinking_level,
             ):
                 if await request.is_disconnected():
                     break

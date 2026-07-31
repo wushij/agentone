@@ -16,7 +16,10 @@ export const useNotifyStore = defineStore('notify', () => {
       .slice(0, 8)
   )
 
-  function addNotification(item: Omit<NotificationItem, 'read'>) {
+  function addNotification(item: Omit<NotificationItem, 'read'>): boolean {
+    if (notifications.value.some((n) => n.id === item.id)) {
+      return false
+    }
     const entry: NotificationItem = { ...item, read: false }
     notifications.value.unshift(entry)
 
@@ -30,6 +33,7 @@ export const useNotifyStore = defineStore('notify', () => {
     if (notifications.value.length > 50) {
       notifications.value = notifications.value.slice(0, 50)
     }
+    return true
   }
 
   function markRead(id: string) {
@@ -59,6 +63,11 @@ export const useNotifyStore = defineStore('notify', () => {
     reconnecting.value = false
   }
 
+  function clearAll() {
+    notifications.value = []
+    announcements.value = []
+  }
+
   return {
     notifications,
     announcements,
@@ -69,6 +78,7 @@ export const useNotifyStore = defineStore('notify', () => {
     addNotification,
     markRead,
     markAllRead,
+    clearAll,
     setWsConnected,
     setReconnecting,
     reset

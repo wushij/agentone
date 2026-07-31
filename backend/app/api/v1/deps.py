@@ -26,6 +26,10 @@ async def _resolve_user_from_payload(
     if payload is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效")
 
+    # 双 token（§17.4）：refresh token 不得用于 API/WS 访问
+    if str(payload.get("type") or "access") == "refresh":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请使用访问令牌")
+
     jti = payload.get("jti")
     if jti and await blacklist.is_blacklisted(jti):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效")

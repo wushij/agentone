@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    # 双 token（§17.4）：refresh token 长有效期（默认 7 天）
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 10080
+    # 安全（§17.4）：为 true 时，SECRET_KEY 仍为默认弱值则拒绝启动
+    REQUIRE_STRONG_SECRET: bool = False
 
     LLM_PROVIDER: str = "mock"
     DEEPSEEK_API_KEY: str = ""

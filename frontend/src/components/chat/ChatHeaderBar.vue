@@ -1,19 +1,65 @@
 <script setup lang="ts">
-import { Cpu, Download } from '@element-plus/icons-vue'
+import { computed, ref } from 'vue'
+import { ArrowDown, Check, Cpu, Download } from '@element-plus/icons-vue'
 import { useChatView } from '@/composables/useChatView'
+import type { AgentMode } from '@/types'
 
 const {
   chatStore,
   models,
   selectedModelId,
+  thinkingLevel,
   kbs,
   selectedKbIds,
   kbRetrieveOnly,
   setKbRetrieveOnly,
   enableTools,
+  agentMode,
+  setAgentMode,
   goAgentMonitor,
   handleExport
 } = useChatView()
+
+const popoverRef = ref()
+
+const thinkingLevelLabel = computed(() => {
+  if (thinkingLevel.value === 'fast') return '快速'
+  if (thinkingLevel.value === 'extended') return '深度思考'
+  return '标准'
+})
+
+const agentModeOptions: Array<{ value: AgentMode; title: string; badge: string; pillClass: string; desc: string }> = [
+  {
+    value: 'standard',
+    title: '标准模式',
+    badge: '标准',
+    pillClass: 'pill--standard',
+    desc: 'ReAct 自主推理与多工具调度'
+  },
+  {
+    value: 'multi',
+    title: '多 Agent 协同',
+    badge: '多Agent',
+    pillClass: 'pill--multi',
+    desc: 'Supervisor 智能路由分派专家 Agent'
+  },
+  {
+    value: 'plan',
+    title: '计划执行模式',
+    badge: '计划',
+    pillClass: 'pill--plan',
+    desc: '结构化拆解步骤并分阶段逐步执行'
+  }
+]
+
+const currentModeInfo = computed(() => {
+  return agentModeOptions.find((opt) => opt.value === agentMode.value) || agentModeOptions[0]
+})
+
+function selectAgentMode(mode: AgentMode) {
+  setAgentMode(mode)
+  popoverRef.value?.hide()
+}
 
 function onKbModeChange(value: string | number | boolean) {
   setKbRetrieveOnly(Boolean(value))
@@ -25,7 +71,7 @@ function onKbModeChange(value: string | number | boolean) {
     <div class="chat-header__left">
       <h2>{{ chatStore.currentConversation?.title || 'AI 对话' }}</h2>
       <span class="chat-header__meta">
-        {{ models.find((m) => m.name === selectedModelId)?.modelName || '默认模型' }} ·
+        {{ models.find((m) => m.name === selectedModelId)?.modelName || '默认模型' }} · {{ thinkingLevelLabel }} ·
         {{ chatStore.streaming ? '~' : '' }}{{ chatStore.totalTokens || 0 }} tokens
         <template v-if="selectedKbIds.length">
           · {{ selectedKbIds.length }} 个知识库{{ kbRetrieveOnly ? '仅检索' : 'RAG' }}
@@ -63,15 +109,6 @@ function onKbModeChange(value: string | number | boolean) {
           @change="onKbModeChange"
         />
       </el-tooltip>
-      <el-select
-        v-model="selectedModelId"
-        class="header-select header-model-select"
-        size="small"
-        placeholder="选择模型"
-        :disabled="chatStore.streaming || (selectedKbIds.length > 0 && kbRetrieveOnly)"
-      >
-        <el-option v-for="m in models" :key="m.name" :label="m.modelName" :value="m.name" />
-      </el-select>
       <el-tooltip content="导出 Markdown" placement="bottom">
         <el-button text circle :disabled="!chatStore.messages.length" @click="handleExport">
           <el-icon><Download /></el-icon>
@@ -82,6 +119,53 @@ function onKbModeChange(value: string | number | boolean) {
           <el-icon><Cpu /></el-icon>
         </el-button>
       </el-tooltip>
+
+      <!-- Agent 协同模式：精品胶囊下拉选单 -->
+      <el-popover
+        ref="popoverRef"
+        placement="bottom-end"
+        :width="270"
+        trigger="click"
+        :show-after="0"
+        :hide-after="0"
+        popper-class="agent-mode-dropdown-panel"
+      >
+        <template #reference>
+          <button
+            type="button"
+            class="agent-mode-trigger-btn"
+            :class="`btn--${agentMode}`"
+            :disabled="chatStore.streaming || (selectedKbIds.length > 0 && kbRetrieveOnly)"
+          >
+            <span>{{ currentModeInfo.badge }}</span>
+            <el-icon class="arrow-icon"><ArrowDown /></el-icon>
+          </button>
+        </template>
+
+        <div class="agent-mode-dropdown-menu">
+          <div class="dropdown-menu-header">Agent 协同模式</div>
+          <div
+            v-for="item in agentModeOptions"
+            :key="item.value"
+            class="dropdown-menu-item"
+            :class="{ 'is-active': item.value === agentMode }"
+            @click="selectAgentMode(item.value)"
+          >
+            <div class="item-left">
+              <span class="check-slot">
+                <el-icon v-if="item.value === agentMode" class="check-icon"><Check /></el-icon>
+              </span>
+              <div class="item-text">
+                <div class="item-title-row">
+                  <span class="item-title">{{ item.title }}</span>
+                  <span class="mode-pill" :class="item.pillClass">{{ item.badge }}</span>
+                </div>
+                <span class="item-desc">{{ item.desc }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-popover>
       <el-switch
         v-model="enableTools"
         inline-prompt
@@ -156,5 +240,161 @@ function onKbModeChange(value: string | number | boolean) {
 
 .header-model-select {
   width: min(130px, 24vw);
+}
+
+.agent-mode-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.agent-mode-trigger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--standard {
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.2);
+}
+.btn--standard:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.btn--multi {
+  background: rgba(168, 85, 247, 0.08);
+  color: #a855f7;
+  border-color: rgba(168, 85, 247, 0.2);
+}
+.btn--multi:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.btn--plan {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.btn--plan:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.arrow-icon {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.dropdown-menu-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ao-text-muted);
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+.agent-mode-dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px;
+}
+.dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.dropdown-menu-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.dropdown-menu-item.is-active {
+  background: rgba(99, 102, 241, 0.08);
+}
+.item-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+.check-slot {
+  width: 16px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.check-icon {
+  font-size: 14px;
+  color: var(--theme-primary, #6366f1);
+  font-weight: bold;
+}
+.item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ao-text-primary);
+}
+.item-desc {
+  font-size: 11px;
+  color: var(--ao-text-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mode-pill {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pill--standard {
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+}
+.pill--multi {
+  background: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+}
+.pill--plan {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+</style>
+
+<style>
+.agent-mode-dropdown-panel {
+  border-radius: 16px !important;
+  padding: 10px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+  transition: opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 </style>

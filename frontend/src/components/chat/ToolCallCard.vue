@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { Setting } from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { ArrowDown, ArrowUp, Setting } from '@element-plus/icons-vue'
 import type { ToolCallState } from '@/types'
 
 defineProps<{
   tool: ToolCallState
 }>()
+
+const isOutputExpanded = ref(false)
+
+function toggleOutput() {
+  isOutputExpanded.value = !isOutputExpanded.value
+}
 </script>
 
 <template>
@@ -27,13 +34,35 @@ defineProps<{
     </div>
 
     <template v-else>
+      <!-- 输入默认保留展示 -->
       <div v-if="tool.input && Object.keys(tool.input).length" class="tool-card__section">
         <span class="tool-card__label">输入</span>
         <pre class="tool-card__code">{{ JSON.stringify(tool.input, null, 2) }}</pre>
       </div>
+
+      <!-- 输出默认折叠，支持手动展开 -->
       <div v-if="tool.output" class="tool-card__section">
-        <span class="tool-card__label">输出</span>
-        <pre class="tool-card__code tool-card__code--result">{{ tool.output }}</pre>
+        <button type="button" class="tool-card__toggle-btn" @click="toggleOutput">
+          <span class="tool-card__label">输出</span>
+          <span class="toggle-action-text">
+            {{ isOutputExpanded ? '收起输出' : '点击展开输出' }}
+            <el-icon class="toggle-arrow" :class="{ 'is-active': isOutputExpanded }">
+              <ArrowDown />
+            </el-icon>
+          </span>
+        </button>
+
+        <Transition name="expand-output">
+          <div v-show="isOutputExpanded" class="tool-card__output-wrapper">
+            <pre class="tool-card__code tool-card__code--result">{{ tool.output }}</pre>
+            <div class="tool-card__bottom-actions">
+              <button type="button" class="tool-card__collapse-link" title="收起输出内容" @click="toggleOutput">
+                <span>收起输出</span>
+                <el-icon class="collapse-icon"><ArrowUp /></el-icon>
+              </button>
+            </div>
+          </div>
+        </Transition>
       </div>
     </template>
   </div>
@@ -103,9 +132,41 @@ defineProps<{
   font-size: 11px;
   font-weight: 600;
   color: var(--ao-text-muted);
-  margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+}
+
+.tool-card__toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.tool-card__toggle-btn:hover .toggle-action-text {
+  color: var(--theme-primary, #6366f1);
+}
+
+.toggle-action-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ao-text-muted);
+  transition: color 0.2s ease;
+}
+
+.toggle-arrow {
+  font-size: 12px;
+  transition: transform 0.25s ease;
+}
+.toggle-arrow.is-active {
+  transform: rotate(180deg);
 }
 
 .tool-card__code {
@@ -124,5 +185,53 @@ defineProps<{
   background: rgba(34, 197, 94, 0.08);
   color: #166534;
   border: 1px solid rgba(34, 197, 94, 0.15);
+  margin-top: 4px;
+}
+
+.tool-card__output-wrapper {
+  position: relative;
+  margin-top: 4px;
+}
+
+.tool-card__bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.tool-card__collapse-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--ao-text-muted, #94a3b8);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.tool-card__collapse-link:hover {
+  color: var(--theme-primary, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.collapse-icon {
+  font-size: 11px;
+}
+
+.expand-output-enter-active,
+.expand-output-leave-active {
+  transition: all 0.25s ease;
+}
+.expand-output-enter-from,
+.expand-output-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 </style>

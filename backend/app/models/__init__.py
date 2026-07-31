@@ -1,6 +1,8 @@
 """Register ORM models for metadata creation."""
 
 from app.models.audit_log import AuditLog  # noqa: F401
+from app.models.agent_task import AgentTask  # noqa: F401
+from app.models.artifact import Artifact  # noqa: F401
 from app.models.conversation import Conversation  # noqa: F401
 from app.models.cost_record import CostRecord  # noqa: F401
 from app.models.file_asset import FileAsset  # noqa: F401

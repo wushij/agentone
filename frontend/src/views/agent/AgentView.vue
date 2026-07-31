@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, ChatDotRound } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import AgentMetricsHeader from '@/components/agent/AgentMetricsHeader.vue'
 import { getWorkflowSnapshot } from '@/api/conversation'
 import { formatDateTime } from '@/utils/datetime'
 import { useAgentStore } from '@/stores/agent'
@@ -278,29 +279,7 @@ const selectedNodeIndex = computed(() => {
     </el-card>
 
     <template v-else>
-      <div class="dashboard-metrics-panel">
-        <div class="dashboard-metrics dashboard-metrics--3">
-          <div
-            v-for="card in metricCards"
-            :key="card.title"
-            class="dashboard-metric"
-            :style="{ borderColor: card.color }"
-          >
-            <div class="dashboard-metric__label">{{ card.title }}</div>
-            <div class="dashboard-metric__value-row">
-              <span class="dashboard-metric__value" :style="{ color: card.color }">{{ card.value }}</span>
-              <span v-if="card.unit" class="dashboard-metric__unit">{{ card.unit }}</span>
-            </div>
-            <div
-              v-if="card.trendText"
-              class="dashboard-metric__trend"
-              :class="`dashboard-metric__trend--${card.trend}`"
-            >
-              {{ card.trendText }}
-            </div>
-          </div>
-        </div>
-      </div>
+      <AgentMetricsHeader :metric-cards="metricCards" />
 
       <el-card shadow="hover" class="pipeline-card" v-loading="loadingSnapshot">
         <template #header>

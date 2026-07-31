@@ -1,5 +1,5 @@
 import type { Router } from 'vue-router'
-import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/request'
+import { REFRESH_TOKEN_STORAGE_KEY, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/request'
 
 let router: Router | null = null
 let handlingUnauthorized = false
@@ -10,6 +10,7 @@ export function bindAuthRouter(instance: Router) {
 
 export function clearAuthStorage() {
   localStorage.removeItem(TOKEN_STORAGE_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY)
   localStorage.removeItem(USER_STORAGE_KEY)
 }
 

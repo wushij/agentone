@@ -45,7 +45,7 @@ def create_user(
         user_id=user.id,
         module="user",
         action="create",
-        detail=f"username={body.username}",
+        detail=f"成功创建新用户账号 [{body.username}] ({body.role})",
     )
     return success(item.model_dump(by_alias=True), message="创建成功")
 

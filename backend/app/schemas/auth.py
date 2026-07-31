@@ -26,6 +26,7 @@ class PasswordChangeRequest(BaseModel):
 
 class AuthPayload(BaseModel):
     token: str
+    refresh_token: str | None = Field(default=None, alias="refreshToken")
     token_type: str = "Bearer"
     id: int
     username: str

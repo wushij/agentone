@@ -23,6 +23,7 @@ from app.core.events.events import (
     SseEvent,
     StreamContext,
     TokenUsage,
+    artifact_event,
     done_event,
     error_event,
     step_event,
@@ -51,11 +52,12 @@ def _format_scratchpad(scratchpad: list[dict[str, Any]]) -> str:
 class ReactLoop:
     """FC 驱动的多步执行循环；作为 async 生成器产出 SSE 事件。"""
 
-    def __init__(self, runner: Any, ctx: StreamContext, state: AgentState, llm_with_tools: Any):
+    def __init__(self, runner: Any, ctx: StreamContext, state: AgentState, llm_with_tools: Any, *, persona: str = ""):
         self.runner = runner  # GraphRunner：复用 _emit_status（审计/WS 通知）
         self.ctx = ctx
         self.state = state
         self.llm_with_tools = llm_with_tools
+        self.persona = persona  # 子 Agent 人设（§15）：非空时作为 SystemMessage 前置
         self.usage_totals: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0}
         self.scratchpad: list[dict[str, Any]] = []
 
@@ -63,10 +65,33 @@ class ReactLoop:
         await self.runner._emit_status(self.ctx, node, status, **kwargs)
 
     def _tool_context(self) -> dict[str, Any]:
+        meta = self.state.get("metadata") or {}
         return {
             "user_id": self.state.get("user_id"),
             "conversation_id": self.state.get("conversation_id"),
+            "hitl": bool(meta.get("hitl")),
+            "task_id": meta.get("task_id"),
         }
+
+    def _register_artifact(self, artifact: dict[str, Any] | None) -> dict[str, Any] | None:
+        """工具产出 Artifact 时登记入库，返回含 id 的精简 dict。"""
+        if not artifact:
+            return None
+        try:
+            from app.runtime.artifacts import get_artifact_manager
+
+            user_id = self.state.get("user_id")
+            return get_artifact_manager().register(
+                user_id=int(user_id) if user_id else None,
+                type=str(artifact.get("type") or "markdown"),
+                title=str(artifact.get("title") or ""),
+                content=str(artifact.get("content") or ""),
+                language=artifact.get("language"),
+                conversation_id=self.state.get("conversation_id"),
+                message_id=self.ctx.message_id,
+            )
+        except Exception:
+            return None
 
     async def _decide(self, messages: list[BaseMessage]) -> AIMessage:
         response = await self.llm_with_tools.ainvoke(messages)
@@ -91,6 +116,11 @@ class ReactLoop:
         if isinstance(meta, dict):
             meta["context_state"] = context_state
         loop_messages: list[BaseMessage] = list(base_messages)
+        # 子 Agent 人设前置（§15 多 Agent）：以 SystemMessage 注入专家角色
+        if self.persona:
+            from langchain_core.messages import SystemMessage
+
+            loop_messages.insert(0, SystemMessage(content=self.persona))
 
         yield step_event(ctx, "researcher", "success", detail="识别意图：Function Calling 自主决策")
         await self._emit("researcher", "success", detail="FC 自主决策")
@@ -142,6 +172,10 @@ class ReactLoop:
                             elapsed_ms=elapsed, detail=(result.output or "")[:300],
                         )
                         await self._emit("tool", "success", tool=call["name"])
+                        if result.artifact:
+                            registered = self._register_artifact(result.artifact)
+                            if registered:
+                                yield artifact_event(ctx, registered)
                     loop_messages.append(
                         ToolMessage(
                             content=(result.error and f"工具执行失败: {result.error}") or result.output or "(空输出)",

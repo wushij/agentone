@@ -1,8 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Bell, Expand, Fold, Moon, Sunny, SwitchButton, User } from '@element-plus/icons-vue'
+import {
+  ArrowDown,
+  Bell,
+  CircleCheckFilled,
+  CircleCloseFilled,
+  Expand,
+  Fold,
+  InfoFilled,
+  Moon,
+  Sunny,
+  SwitchButton,
+  User,
+  WarningFilled
+} from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import AppThemePicker from '@/components/layout/AppThemePicker.vue'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
@@ -15,7 +29,8 @@ const userStore = useUserStore()
 const notifyStore = useNotifyStore()
 const themeStore = useThemeStore()
 
-const pageTitle = computed(() => {  const title = route.meta?.title
+const pageTitle = computed(() => {
+  const title = route.meta?.title
   return typeof title === 'string' ? title : 'AgentOne'
 })
 
@@ -55,9 +70,37 @@ function goProfile() {
   router.push('/profile')
 }
 
-function goNotifications() {
-  notifyStore.markAllRead()
-  router.push('/dashboard')
+async function handleClearNotifications() {
+  const ok = await confirmAction({
+    title: '清空确认',
+    message: '确定要清空通知中心的所有消息通知吗？清空后无法恢复。',
+    confirmButtonText: '确定清空',
+    type: 'warning'
+  })
+  if (!ok) return
+  notifyStore.clearAll()
+}
+
+function formatTime(iso: string): string {
+  if (!iso) return ''
+  try {
+    const date = new Date(iso)
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000)
+    if (diff < 60) return '刚刚'
+    if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+    return `${date.getMonth() + 1}-${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return iso
+  }
+}
+
+function handleNotificationClick(item: any) {
+  notifyStore.markRead(item.id)
+  if (item.action?.route) {
+    void router.push(item.action.route)
+  }
 }
 </script>
 
@@ -109,16 +152,90 @@ function goNotifications() {
           <Moon v-else />
         </el-icon>
       </button>
-      <button
-        v-if="notifyStore.unreadCount > 0"
-        type="button"
-        class="icon-btn icon-btn--badge"
-        :title="`${notifyStore.unreadCount} 条未读通知`"
-        @click="goNotifications"
+      <!-- 消息通知中心浮窗 -->
+      <el-popover
+        placement="bottom-end"
+        :width="340"
+        trigger="click"
+        :show-after="0"
+        :hide-after="0"
+        popper-class="notification-popover-panel"
       >
-        <el-icon :size="18"><Bell /></el-icon>
-        <span class="icon-btn__badge">{{ notifyStore.unreadCount > 9 ? '9+' : notifyStore.unreadCount }}</span>
-      </button>
+        <template #reference>
+          <button
+            type="button"
+            class="icon-btn icon-btn--badge"
+            :title="notifyStore.unreadCount > 0 ? `${notifyStore.unreadCount} 条未读通知` : '通知中心'"
+          >
+            <el-icon :size="18"><Bell /></el-icon>
+            <span v-if="notifyStore.unreadCount > 0" class="icon-btn__badge">
+              {{ notifyStore.unreadCount > 9 ? '9+' : notifyStore.unreadCount }}
+            </span>
+          </button>
+        </template>
+
+        <div class="notif-popover">
+          <div class="notif-popover__header">
+            <div class="notif-popover__title">
+              <span>通知中心</span>
+              <el-tag v-if="notifyStore.unreadCount > 0" size="small" type="danger" round>
+                {{ notifyStore.unreadCount }} 未读
+              </el-tag>
+            </div>
+            <div class="notif-popover__actions">
+              <button
+                v-if="notifyStore.unreadCount > 0"
+                type="button"
+                class="notif-action-btn notif-action-btn--primary"
+                @click="notifyStore.markAllRead()"
+              >
+                全部已读
+              </button>
+              <button
+                v-if="notifyStore.notifications.length > 0"
+                type="button"
+                class="notif-action-btn notif-action-btn--danger"
+                @click="handleClearNotifications"
+              >
+                清空
+              </button>
+            </div>
+          </div>
+
+          <div class="notif-popover__body">
+            <template v-if="notifyStore.notifications.length > 0">
+              <div
+                v-for="item in notifyStore.notifications"
+                :key="item.id"
+                class="notif-item"
+                :class="{ 'is-unread': !item.read }"
+                @click="handleNotificationClick(item)"
+              >
+                <div class="notif-item__icon" :class="`icon--${item.level}`">
+                  <el-icon>
+                    <InfoFilled v-if="item.level === 'info'" />
+                    <WarningFilled v-if="item.level === 'warning'" />
+                    <CircleCloseFilled v-if="item.level === 'error'" />
+                    <CircleCheckFilled v-if="item.level === 'success'" />
+                  </el-icon>
+                </div>
+                <div class="notif-item__content">
+                  <div class="notif-item__head">
+                    <span class="notif-item__title">{{ item.title }}</span>
+                    <span class="notif-item__time">{{ formatTime(item.timestamp) }}</span>
+                  </div>
+                  <div class="notif-item__body">{{ item.body }}</div>
+                </div>
+                <span v-if="!item.read" class="notif-item__unread-dot" />
+              </div>
+            </template>
+            <div v-else class="notif-popover__empty">
+              <el-icon class="empty-icon"><Bell /></el-icon>
+              <p>暂无新通知</p>
+            </div>
+          </div>
+        </div>
+      </el-popover>
 
       <el-dropdown trigger="click" @command="(cmd: string) => cmd === 'logout' ? handleLogout() : goProfile()">
         <button type="button" class="user-trigger">
@@ -301,5 +418,179 @@ function goNotifications() {
 .is-active-theme {
   color: var(--theme-primary) !important;
   font-weight: 700 !important;
+}
+
+.notif-popover {
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ao-border, #e2e8f0);
+}
+
+.notif-popover__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ao-text-primary);
+}
+
+.notif-popover__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.notif-action-btn--primary {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--theme-primary, #6366f1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.notif-action-btn--primary:hover {
+  background: var(--theme-primary, #6366f1);
+  color: #ffffff;
+  border-color: var(--theme-primary, #6366f1);
+}
+
+.notif-action-btn--danger {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.notif-action-btn--danger:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.notif-popover__body {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.notif-item:hover {
+  background: var(--ao-panel-footer-bg, #f8fafc);
+}
+
+.notif-item.is-unread {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.notif-item__icon {
+  font-size: 18px;
+  margin-top: 2px;
+}
+.notif-item__icon.icon--info {
+  color: #3b82f6;
+}
+.notif-item__icon.icon--warning {
+  color: #f59e0b;
+}
+.notif-item__icon.icon--error {
+  color: #ef4444;
+}
+.notif-item__icon.icon--success {
+  color: #10b981;
+}
+
+.notif-item__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.notif-item__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ao-text-primary);
+}
+
+.notif-item__time {
+  font-size: 11px;
+  color: var(--ao-text-muted, #94a3b8);
+}
+
+.notif-item__body {
+  font-size: 12px;
+  color: var(--ao-text-secondary, #64748b);
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.notif-item__unread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  position: absolute;
+  top: 14px;
+  right: 12px;
+}
+
+.notif-popover__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  color: var(--ao-text-muted, #94a3b8);
+}
+
+.notif-popover__empty .empty-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.notif-popover__empty p {
+  font-size: 13px;
+  margin: 0;
+}
+</style>
+
+<style>
+.notification-popover-panel {
+  border-radius: 16px !important;
+  padding: 0 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+  transition: opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 </style>

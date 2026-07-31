@@ -27,16 +27,29 @@ _ROLE_FALLBACKS = {
     ),
     "summary": (
         "你是一个总结代理（Summary Agent / Summarizer Agent）。"
-        "你需要整合任务规划、收集到的检索信息/工具执行结果以及审阅建议，"
-        "为用户输出最终精美、易懂的回答。"
+        "你需要整合任务规划、收集到的检索信息/工具执行结果以及审阅建议，为用户输出最终精美、易懂的回答。\n"
+        "【排版规范】回答时请务必使用丰富直观的 Emoji 图标进行标题分节（例如：📌 核心概述、⚙️ 技术架构、💡 项目源码、📋 功能说明、🔍 详细解答等），并配合 Markdown 列表进行结构化清晰排版。"
     ),
     "react_agent": (
         "你是 AgentOne 的执行代理。你可以调用提供的工具来解决用户问题；"
-        "可以多步调用不同工具（先搜索、再计算、再查库等），"
-        "当已有足够信息时直接给出最终回答，不要重复调用相同工具。"
+        "可以多步调用不同工具（先搜索、再计算、再查库等），当已有足够信息时直接给出最终回答，不要重复调用相同工具。\n"
+        "【排版规范】回答时请务必使用丰富直观的 Emoji 图标进行标题分节（例如：📌 核心概述、⚙️ 技术架构、💡 项目源码、📋 功能说明、🔍 详细解答等），并配合 Markdown 列表进行结构化清晰排版。"
     ),
     "prompt_engineer": "你是 AI 编程提示词工程专家，为用户生成企业级可投喂 AI 编程工具的开发提示词。",
 }
+
+
+def _thinking_directive(state: dict[str, Any]) -> str:
+    """扩展思考档位（§6.1）→ 注入到 system 提示的推理指令，对任意 provider 都生效。"""
+    level = str((state.get("metadata") or {}).get("thinking_level") or "standard")
+    if level == "fast":
+        return "【快速模式】直接给出简洁、准确的结论，省略推理过程与冗余展开，优先响应效率。"
+    if level == "extended":
+        return (
+            "【深度思考模式】在给出最终答案前，先系统性地分步推理：拆解问题、"
+            "权衡多种方案、检查边界与反例，再输出严谨、完整、有依据的结论。"
+        )
+    return ""
 
 
 class ContextBuilder:
@@ -63,6 +76,9 @@ class ContextBuilder:
     def _build_planner(self, state: dict[str, Any]) -> tuple[list[BaseMessage], dict[str, Any]]:
         report = BudgetReport(total=self.budget.total)
         system = load_prompt("planner", _ROLE_FALLBACKS["planner"])
+        directive = _thinking_directive(state)
+        if directive:
+            system = directive + "\n\n" + system
         sys_block = self.budget.fit_text("system", system, "system")
         report.blocks.append(sys_block)
 
@@ -107,6 +123,9 @@ class ContextBuilder:
 
         report = BudgetReport(total=self.budget.total)
         system = load_prompt("summary", _ROLE_FALLBACKS["summary"])
+        directive = _thinking_directive(state)
+        if directive:
+            system = directive + "\n\n" + system
         sys_block = self.budget.fit_text("system", system, "system")
         report.blocks.append(sys_block)
 
@@ -208,6 +227,9 @@ class ContextBuilder:
         report = BudgetReport(total=self.budget.total)
         system = load_prompt("react_agent", _ROLE_FALLBACKS["react_agent"])
         meta = state.get("metadata") or {}
+        directive = _thinking_directive(state)
+        if directive:
+            system = directive + "\n\n" + system
 
         extras: list[str] = []
         rag_block = self.budget.fit_text("rag", str(meta.get("rag_context") or ""), "rag")

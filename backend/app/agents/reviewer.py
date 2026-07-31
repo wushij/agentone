@@ -44,6 +44,19 @@ def parse_review(content: str) -> dict:
 
 
 async def reviewer_node(state: AgentState) -> dict:
+    # 快速通道（性能）：没有工具执行结果时无需审阅（纯对话），
+    # 直接通过，跳过 reviewer 的整段 LLM 往返。
+    if not state.get("tool_name") and not state.get("tool_result"):
+        return {
+            "current_node": "reviewer",
+            "metadata": {
+                "review": "",
+                "review_verdict": "approved",
+                "review_score": 1.0,
+                "reflections": int((state.get("metadata") or {}).get("reflections") or 0),
+            },
+        }
+
     model_id = (state.get("metadata") or {}).get("model_id")
     llm = create_chat_model(model=model_id)
 

@@ -44,7 +44,7 @@ async def upload_file(
         user_id=user.id,
         module="file",
         action="upload",
-        detail=row.original_name,
+        detail=f"成功上传关联文件 [{row.original_name}] ({row.size_bytes} 字节)",
     )
     return success(svc.to_dict(row), message="上传成功")
 

@@ -29,15 +29,11 @@ from app.core.events.events import (
     usage_event,
 )
 from app.core.context.state import AgentState, init_state
+from app.core.engine.checkpointer import create_checkpointer
 from app.tools.registry import get_tool, is_tool_enabled
 from app.utils.logger import logger
 
 AgentStatusCallback = Callable[[AgentStatusEvent], Awaitable[None] | None]
-
-
-def create_checkpointer():
-    from langgraph.checkpoint.memory import MemorySaver
-    return MemorySaver()
 
 
 async def _intent_node(state: AgentState) -> dict:
@@ -414,6 +410,9 @@ class GraphRunner:
         model_id: str | None = None,
         kb_ids: list[str] | None = None,
         kb_mode: str = "generate",
+        multi_agent: bool = False,
+        plan_execute: bool = False,
+        thinking_level: str = "standard",
     ) -> AsyncIterator[SseEvent]:
         msg_id = message_id or str(uuid.uuid4())
         conv_id = conversation_id or session_id or str(uuid.uuid4())
@@ -427,9 +426,64 @@ class GraphRunner:
             metadata["model_id"] = model_id
         if resolved_kb_ids:
             metadata["kb_ids"] = resolved_kb_ids
+        # 扩展思考档位（§6.1）：写入 metadata，供 ContextBuilder 注入推理指令 + 模型温度映射
+        if thinking_level and thinking_level != "standard":
+            metadata["thinking_level"] = thinking_level
 
         yield step_event(ctx, "prepare", "running")
         yield step_event(ctx, "prepare", "success")
+
+        # 多 Agent 编排路径（§15，opt-in）：Supervisor 选专家 → 子 Agent ReactLoop
+        if multi_agent:
+            from app.core.context.state import init_state as _init_state
+            from app.runtime.executor.loops.supervisor import SupervisorLoop
+
+            ma_state = _init_state(
+                user_input=user_input,
+                session_id=thread_id,
+                user_id=user_id,
+                conversation_id=conv_id,
+                message_id=msg_id,
+                history=history,
+            )
+            ma_state["metadata"] = {**(ma_state.get("metadata") or {}), **metadata}
+            try:
+                async for event in SupervisorLoop(self, ctx, ma_state).run():
+                    yield event
+            except Exception as exc:
+                logger.error(f"[Engine] Multi-agent error: {exc}", exc_info=True)
+                yield error_event(ctx, "MULTI_AGENT_FAILED", str(exc))
+                yield done_event(ctx, "error")
+            return
+
+        # Plan-and-Execute 路径（§16.1，opt-in）：结构化计划 → 逐步执行 → 总结
+        if plan_execute:
+            from app.core.context.state import init_state as _init_state
+            from app.llm.factory import create_chat_model
+            from app.runtime.executor.loops.plan_execute import PlanExecuteLoop
+            from app.runtime.executor.tool_binding import bind_tools_if_supported
+            from app.runtime.tools.manager import get_tool_manager
+
+            pe_state = _init_state(
+                user_input=user_input,
+                session_id=thread_id,
+                user_id=user_id,
+                conversation_id=conv_id,
+                message_id=msg_id,
+                history=history,
+            )
+            pe_state["metadata"] = {**(pe_state.get("metadata") or {}), **metadata}
+            try:
+                tools = get_tool_manager().list_available_tools()
+                plain = create_chat_model(model=model_id, thinking_level=thinking_level)
+                bound = bind_tools_if_supported(create_chat_model(model=model_id, thinking_level=thinking_level), tools) or plain
+                async for event in PlanExecuteLoop(self, ctx, pe_state, bound, plain).run():
+                    yield event
+            except Exception as exc:
+                logger.error(f"[Engine] Plan-execute error: {exc}", exc_info=True)
+                yield error_event(ctx, "PLAN_EXECUTE_FAILED", str(exc))
+                yield done_event(ctx, "error")
+            return
 
         if resolved_kb_ids and kb_mode == "retrieve":
             try:

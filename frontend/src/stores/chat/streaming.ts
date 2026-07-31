@@ -3,13 +3,14 @@ import { ElMessage } from 'element-plus'
 import {
   createChatStream,
   createRegenerateStream,
+  type SseArtifactPayload,
   type SseSourcesPayload,
   type SseTokenPayload,
   type SseStepPayload,
   type SseToolEndPayload,
   type SseToolStartPayload
 } from '@/api/chat'
-import type { ChatMessage, ConversationSummary, MessageSource, WorkflowStep } from '@/types'
+import type { ChatMessage, ConversationSummary, MessageArtifact, MessageSource, ThinkingLevel, WorkflowStep } from '@/types'
 import { nowIso, saveLastConversationId, uid } from './helpers'
 
 export interface ChatStreamContext {
@@ -110,6 +111,24 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     if (list.length) msg.sources = list
   }
 
+  function addArtifact(convId: string, payload: SseArtifactPayload) {
+    const msg = getStreamingMessage(convId)
+    if (!msg || !payload.artifact) return
+    if (!msg.artifacts) msg.artifacts = []
+    const a = payload.artifact
+    const item: MessageArtifact = {
+      id: a.id,
+      type: a.type,
+      title: a.title,
+      content: a.content,
+      language: a.language,
+      version: a.version
+    }
+    const idx = msg.artifacts.findIndex((x) => x.id === item.id)
+    if (idx >= 0) msg.artifacts[idx] = item
+    else msg.artifacts.push(item)
+  }
+
   function cleanupRunningSteps(msg: ChatMessage) {
     if (msg.steps) {
       for (const step of msg.steps) {
@@ -188,6 +207,7 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       onToolStart: (p: SseToolStartPayload) => startTool(convId, p),
       onToolEnd: (p: SseToolEndPayload) => endTool(convId, p),
       onSources: (p: SseSourcesPayload) => setSources(convId, p),
+      onArtifact: (p: SseArtifactPayload) => addArtifact(convId, p),
       onUsage: (p: { totalTokens: number }) => {
         const msg = getStreamingMessage(convId)
         if (msg) msg.tokens = p.totalTokens
@@ -214,13 +234,19 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     kbIds?: string[]
     kbMode?: 'generate' | 'retrieve'
     enableTools?: boolean
+    multiAgent?: boolean
+    planExecute?: boolean
+    thinkingLevel?: ThinkingLevel
   }) {
     const kbIds = (options?.kbIds ?? []).filter(Boolean)
     return {
       modelId: options?.modelId ?? ctx.selectedModelId.value ?? undefined,
       kbIds: kbIds.length ? kbIds : undefined,
       kbMode: options?.kbMode,
-      enableTools: options?.enableTools ?? true
+      enableTools: options?.enableTools ?? true,
+      multiAgent: options?.multiAgent || undefined,
+      planExecute: options?.planExecute || undefined,
+      thinkingLevel: options?.thinkingLevel
     }
   }
 
@@ -231,6 +257,9 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       kbIds?: string[]
       kbMode?: 'generate' | 'retrieve'
       enableTools?: boolean
+      multiAgent?: boolean
+      planExecute?: boolean
+      thinkingLevel?: ThinkingLevel
     }
   ) {
     const text = content.trim()
@@ -260,7 +289,10 @@ export function createChatStreaming(ctx: ChatStreamContext) {
         modelId: opts.modelId,
         kbIds: opts.kbIds,
         kbMode: opts.kbMode,
-        enableTools: opts.enableTools
+        enableTools: opts.enableTools,
+        multiAgent: opts.multiAgent,
+        planExecute: opts.planExecute,
+        thinkingLevel: opts.thinkingLevel
       },
       buildStreamHandlers(convId),
       controller.signal
@@ -278,6 +310,9 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       kbIds?: string[]
       kbMode?: 'generate' | 'retrieve'
       enableTools?: boolean
+      multiAgent?: boolean
+      planExecute?: boolean
+      thinkingLevel?: ThinkingLevel
     }
   ) {
     const convId = ctx.currentId.value
@@ -313,7 +348,10 @@ export function createChatStreaming(ctx: ChatStreamContext) {
         modelId: opts.modelId,
         kbIds: opts.kbIds,
         kbMode: opts.kbMode,
-        enableTools: opts.enableTools
+        enableTools: opts.enableTools,
+        multiAgent: opts.multiAgent,
+        planExecute: opts.planExecute,
+        thinkingLevel: opts.thinkingLevel
       },
       buildStreamHandlers(convId),
       controller.signal

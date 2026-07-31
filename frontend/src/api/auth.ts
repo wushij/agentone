@@ -1,4 +1,4 @@
-import request, { type ExtendedRequestConfig } from './request'
+import request, { REFRESH_TOKEN_STORAGE_KEY, type ExtendedRequestConfig } from './request'
 import type { CaptchaState, LoginPayload, LoginResponse, UserProfile } from '@/types'
 
 const publicConfig: ExtendedRequestConfig = {
@@ -8,6 +8,7 @@ const publicConfig: ExtendedRequestConfig = {
 
 interface AuthPayload {
   token: string
+  refreshToken?: string
   id: number
   username: string
   nickname?: string
@@ -32,6 +33,7 @@ function toUserProfile(data: AuthPayload): UserProfile {
 function toLoginResponse(data: AuthPayload): LoginResponse {
   return {
     token: data.token,
+    refreshToken: data.refreshToken,
     user: toUserProfile(data)
   }
 }
@@ -89,5 +91,10 @@ export function register(payload: {
 }
 
 export function refreshToken() {
-  return request.post<AuthPayload>('/auth/refresh').then((res) => toLoginResponse(res.data))
+  // 双 token（§17.4）：优先用 refresh token 换发；无则回退拦截器带 access。
+  const refreshTok = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || ''
+  const cfg: ExtendedRequestConfig = refreshTok
+    ? { skipAuth: true, headers: { Authorization: `Bearer ${refreshTok}` } }
+    : {}
+  return request.post<AuthPayload>('/auth/refresh', {}, cfg).then((res) => toLoginResponse(res.data))
 }

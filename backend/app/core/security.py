@@ -25,6 +25,20 @@ def create_access_token(subject: str | int, role: str) -> str:
     payload = {
         "sub": str(subject),
         "role": role,
+        "type": "access",
+        "jti": uuid4().hex,
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token(subject: str | int, role: str) -> str:
+    """长有效期 refresh token（§17.4 双 token）：仅用于换发 access。"""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "sub": str(subject),
+        "role": role,
+        "type": "refresh",
         "jti": uuid4().hex,
         "exp": expire,
     }

@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.approvals import router as approvals_router
+from app.api.v1.artifacts import router as artifacts_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.conversation import router as conversation_router
 from app.api.v1.dashboard import router as dashboard_router
@@ -14,6 +16,7 @@ from app.api.v1.models import router as models_router
 from app.api.v1.monitor import router as monitor_router
 from app.api.v1.prompts import router as prompts_router
 from app.api.v1.settings import router as settings_router
+from app.api.v1.tasks import router as tasks_router
 from app.api.v1.tools import router as tools_router
 from app.api.v1.users import router as users_router
 from app.api.v1.ws import router as ws_router
@@ -33,5 +36,8 @@ v1_router.include_router(settings_router)
 v1_router.include_router(logs_router)
 v1_router.include_router(memories_router)
 v1_router.include_router(monitor_router)
+v1_router.include_router(tasks_router)
+v1_router.include_router(artifacts_router)
+v1_router.include_router(approvals_router)
 v1_router.include_router(users_router)
 v1_router.include_router(ws_router)

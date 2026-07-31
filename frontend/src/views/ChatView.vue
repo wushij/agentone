@@ -17,9 +17,12 @@ const { historyCollapsed } = useChatViewProvider()
 .chat-view {
   display: flex;
   align-items: stretch;
-  height: calc(100vh - var(--ao-header-height) - 48px);
+  height: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
   min-height: 520px;
   max-width: 1400px;
+  margin: 0 auto;
 }
 
 .chat-view--collapsed :deep(.chat-main) {

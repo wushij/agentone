@@ -34,6 +34,22 @@ def _print_startup_banner() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 安全（§17.4）：SECRET_KEY 弱值强校验——默认弱值下大声告警；
+    # 设 REQUIRE_STRONG_SECRET=true 时拒绝启动（生产强制）。
+    try:
+        from app.config.settings import get_settings
+
+        _s = get_settings()
+        if _s.SECRET_KEY == "change-me-in-production":
+            msg = "[Security] SECRET_KEY 仍为默认弱值，生产环境必须在 .env 中修改！"
+            if getattr(_s, "REQUIRE_STRONG_SECRET", False):
+                raise RuntimeError(msg + " (REQUIRE_STRONG_SECRET=true 已拒绝启动)")
+            logger.warning(msg)
+    except RuntimeError:
+        raise
+    except Exception:
+        pass
+
     from app.db.session import SessionLocal
     from app.db.seed import seed_all
     db = SessionLocal()
@@ -72,14 +88,26 @@ async def lifespan(app: FastAPI):
         get_qdrant_store()
     except Exception as e:
         logger.error(f"Failed to start background workers: {e}")
+    try:
+        from app.runtime.scheduler import get_scheduler
+        from app.services.task.handlers import run_agent_task
+
+        scheduler = get_scheduler()
+        scheduler.register_handler("agent", run_agent_task)
+        scheduler.register_handler("report", run_agent_task)
+        scheduler.start()
+    except Exception as e:
+        logger.error(f"Failed to start task scheduler: {e}")
     _print_startup_banner()
     yield
     try:
         from app.events.stream_consumer import stop_stream_consumer
         from app.memory.scheduler import stop_memory_decay
+        from app.runtime.scheduler import get_scheduler
 
         await stop_memory_decay()
         await stop_stream_consumer()
+        await get_scheduler().stop()
     except Exception:
         pass
     await shutdown_notify_listener()

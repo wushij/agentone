@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getCurrentUser, login as loginApi, logout as logoutApi } from '@/api/auth'
-import { isNetworkFailure, resolveErrorStatus, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/request'
+import { isNetworkFailure, resolveErrorStatus, REFRESH_TOKEN_STORAGE_KEY, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/request'
 import { clearAuthStorage } from '@/utils/session'
 import { matchPermission } from '@/utils/permissions'
 import type { LoginPayload, LoginResponse, UserProfile, UserRole } from '@/types'
@@ -45,6 +45,9 @@ export const useUserStore = defineStore('user', () => {
   function persistSession(payload: LoginResponse) {
     token.value = payload.token
     localStorage.setItem(TOKEN_STORAGE_KEY, payload.token)
+    if (payload.refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, payload.refreshToken)
+    }
     applyProfile(payload.user)
     scheduleTokenRefresh()
   }
@@ -66,6 +69,9 @@ export const useUserStore = defineStore('user', () => {
         const response = await doRefresh()
         token.value = response.token
         localStorage.setItem(TOKEN_STORAGE_KEY, response.token)
+        if (response.refreshToken) {
+          localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, response.refreshToken)
+        }
         applyProfile(response.user)
       } catch {
         /* ignore background refresh errors */

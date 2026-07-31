@@ -91,7 +91,8 @@ function showNotification(payload: Record<string, unknown>) {
     action: payload.action as NotificationItem['action']
   }
 
-  notifyStore.addNotification(item)
+  const added = notifyStore.addNotification(item)
+  if (!added) return
 
   const action = item.action
   ElNotification({
@@ -148,6 +149,13 @@ function handleMessage(raw: string) {
       break
     case 'agent_status':
       if (msg.payload) useAgentStore().applyStatus(msg.payload)
+      break
+    case 'task_progress':
+      if (msg.payload) {
+        import('@/stores/task').then(({ useTaskStore }) => {
+          useTaskStore().applyProgress(msg.payload!)
+        })
+      }
       break
     default:
       break

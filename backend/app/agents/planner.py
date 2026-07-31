@@ -157,8 +157,18 @@ def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
 
 
 async def planner_node(state: AgentState) -> dict:
-    model_id = (state.get("metadata") or {}).get("model_id")
-    llm = create_chat_model(model=model_id)
+    meta = state.get("metadata") or {}
+    user_input = state.get("user_input") or ""
+
+    # 快速通道（性能）：纯对话 / 提示词工程 / 工具已禁用时无需规划，
+    # 跳过 planner 的整段 LLM 往返，直接进入总结流式输出。
+    tools_enabled = meta.get("enable_tools") is not False
+    intent, _tool_name, _tool_input = detect_intent(user_input)
+    if not tools_enabled or intent in ("chat", "prompt_engineer"):
+        return {"current_node": "planner", "metadata": {"plan": ""}}
+
+    model_id = meta.get("model_id")
+    llm = create_chat_model(model=model_id, thinking_level=str(meta.get("thinking_level") or "standard"))
 
     from app.runtime.context.builder import get_context_builder
 

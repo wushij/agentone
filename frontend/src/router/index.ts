@@ -42,6 +42,12 @@ const router = createRouter({
           meta: { title: 'AI 记忆', permission: 'chat:read' }
         },
         {
+          path: 'tasks',
+          name: 'tasks',
+          component: () => import('@/views/TasksView.vue'),
+          meta: { title: '任务中心', permission: 'chat:read' }
+        },
+        {
           path: 'agent',
           name: 'agent',
           component: () => import('@/views/agent/AgentView.vue'),

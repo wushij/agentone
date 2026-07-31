@@ -6,11 +6,13 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
-SseEventType = Literal["token", "tool_start", "tool_end", "usage", "done", "error", "step", "sources"]
+SseEventType = Literal["token", "tool_start", "tool_end", "usage", "done", "error", "step", "sources", "artifact"]
 
 NODE_LABELS: dict[str, str] = {
     "prepare": "准备处理",
     "rag": "检索知识库",
+    "supervisor": "Supervisor 调度",
+    "agent": "子 Agent 执行",
     "planner": "分析意图与规划",
     "researcher": "识别意图与路由",
     "tool": "调用工具",
@@ -169,5 +171,17 @@ def sources_event(ctx: StreamContext, sources: list[dict[str, Any]]) -> SseEvent
             "conversationId": ctx.conversation_id,
             "messageId": ctx.message_id,
             "sources": sources,
+        },
+    )
+
+
+def artifact_event(ctx: StreamContext, artifact: dict[str, Any]) -> SseEvent:
+    """产物事件（§12.2）：工具/Agent 产出的代码/图表/文档登记后通知前端面板。"""
+    return SseEvent(
+        "artifact",
+        {
+            "conversationId": ctx.conversation_id,
+            "messageId": ctx.message_id,
+            "artifact": artifact,
         },
     )

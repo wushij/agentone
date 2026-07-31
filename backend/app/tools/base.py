@@ -14,6 +14,8 @@ class ToolResult:
     output: str
     duration_ms: int
     error: str = ""
+    # 可选产物（§12.2）：工具产出图表/代码/文件时带回 {type,title,content,language}
+    artifact: dict[str, Any] | None = None
 
 
 class BaseTool(ABC):
@@ -23,6 +25,8 @@ class BaseTool(ABC):
     # 并用于生成 Function Calling 的 JSON Schema。None 表示自由 kwargs。
     args_schema: type[BaseModel] | None = None
     timeout_s: float = 30.0
+    # HITL（§16.2）：为 True 时，在带审批上下文的执行路径中需人工批准后才运行
+    requires_approval: bool = False
 
     @abstractmethod
     async def run(self, **kwargs: Any) -> ToolResult:

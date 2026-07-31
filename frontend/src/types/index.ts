@@ -52,7 +52,17 @@ export interface ChatMessage {
   tools?: ToolCallState[]
   steps?: WorkflowStep[]
   sources?: MessageSource[]
+  artifacts?: MessageArtifact[]
   streaming?: boolean
+}
+
+export interface MessageArtifact {
+  id: string
+  type: string
+  title: string
+  content: string
+  language?: string
+  version?: number
 }
 
 export interface MessageSource {
@@ -85,6 +95,12 @@ export interface WorkflowStep {
 
 export type KbMode = 'generate' | 'retrieve'
 
+/** Agent 执行模式：标准 ReAct / 多 Agent 协作 / 计划模式 */
+export type AgentMode = 'standard' | 'multi' | 'plan'
+
+/** 扩展思考档位：快速 / 标准 / 深度思考 */
+export type ThinkingLevel = 'fast' | 'standard' | 'extended'
+
 export interface ChatStreamRequest {
   conversationId: string
   message: string
@@ -94,6 +110,9 @@ export interface ChatStreamRequest {
   kbIds?: string[]
   kbMode?: KbMode
   enableTools?: boolean
+  multiAgent?: boolean
+  planExecute?: boolean
+  thinkingLevel?: ThinkingLevel
 }
 
 export interface ChatRegenerateRequest {
@@ -105,6 +124,9 @@ export interface ChatRegenerateRequest {
   kbIds?: string[]
   kbMode?: KbMode
   enableTools?: boolean
+  multiAgent?: boolean
+  planExecute?: boolean
+  thinkingLevel?: ThinkingLevel
 }
 
 export interface AvailableModel {

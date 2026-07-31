@@ -1,7 +1,7 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import { handleUnauthorized } from '@/utils/session'
-import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/constants/storage'
+import { REFRESH_TOKEN_STORAGE_KEY, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/constants/storage'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -11,7 +11,7 @@ declare module 'axios' {
   }
 }
 
-export { TOKEN_STORAGE_KEY, USER_STORAGE_KEY }
+export { REFRESH_TOKEN_STORAGE_KEY, TOKEN_STORAGE_KEY, USER_STORAGE_KEY }
 
 export interface ExtendedRequestConfig extends AxiosRequestConfig {
   skipAuth?: boolean
@@ -168,18 +168,32 @@ function delay(ms: number) {
 }
 
 async function refreshAccessToken(): Promise<string> {
-  const res = await request.post('/auth/refresh', {}, {
-    skipAuth: false,
-    skipErrorHandler: true,
-    skipUnauthorizedRedirect: true
-  })
-  const data = res.data as { token?: string; accessToken?: string }
+  // 双 token（§17.4）：有 refresh token 则用其换发（显式 Bearer + skipAuth）；
+  // 无则回退旧逻辑（拦截器带 access token），保证向后兼容。
+  const refreshTok = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || ''
+  const cfg: ExtendedRequestConfig = refreshTok
+    ? {
+        skipAuth: true,
+        skipErrorHandler: true,
+        skipUnauthorizedRedirect: true,
+        headers: { Authorization: `Bearer ${refreshTok}` }
+      }
+    : {
+        skipAuth: false,
+        skipErrorHandler: true,
+        skipUnauthorizedRedirect: true
+      }
+  const res = await request.post('/auth/refresh', {}, cfg)
+  const data = res.data as { token?: string; accessToken?: string; refreshToken?: string }
   const newToken = data?.token || data?.accessToken || ''
   if (!newToken) {
     throw createApiError('Token 刷新失败')
   }
 
   localStorage.setItem(TOKEN_STORAGE_KEY, newToken)
+  if (data.refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken)
+  }
   const { useUserStore } = await import('@/stores/user')
   const userStore = useUserStore()
   userStore.token = newToken

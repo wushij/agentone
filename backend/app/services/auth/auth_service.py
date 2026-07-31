@@ -6,7 +6,7 @@ from redis.asyncio import Redis
 from sqlalchemy.orm import Session
 
 from app.config.settings import settings
-from app.core.security import create_access_token, safe_decode_access_token, verify_password
+from app.core.security import create_access_token, create_refresh_token, safe_decode_access_token, verify_password
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import AuthPayload, LoginRequest, PasswordChangeRequest, ProfileUpdateRequest, RegisterRequest
@@ -56,7 +56,7 @@ class AuthService:
             user_id=user.id,
             module="auth",
             action="login",
-            detail=f"ip={client_ip}",
+            detail=f"用户安全登录成功 (客户端 IP: {client_ip})",
         )
         return self._build_auth_payload(user)
 
@@ -131,6 +131,8 @@ class AuthService:
         payload = safe_decode_access_token(token)
         if not payload:
             raise ValueError("Token 无效或已过期")
+        # 双 token（§17.4）：优先接受 refresh 类型；兼容旧版仅 access 的刷新
+        token_kind = str(payload.get("type") or "access")
         jti = payload.get("jti")
         if jti and await TokenBlacklistService(redis).is_blacklisted(jti):
             raise ValueError("Token 已失效")
@@ -140,9 +142,10 @@ class AuthService:
         user = self.users.get_by_id(int(user_id))
         if user is None or user.status != 1:
             raise ValueError("用户不存在或已被禁用")
+        # 轮换：拉黑旧（refresh/access）jti，重新签发双 token
         if jti:
             exp = payload.get("exp")
-            ttl = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            ttl = settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60 if token_kind == "refresh" else settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
             if exp:
                 ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 60)
             await TokenBlacklistService(redis).add(jti, ttl)
@@ -152,6 +155,7 @@ class AuthService:
         permissions = self.role_service.get_permissions(user.role)
         return AuthPayload(
             token=create_access_token(user.id, user.role),
+            refresh_token=create_refresh_token(user.id, user.role),
             id=user.id,
             username=user.username,
             nickname=user.nickname,

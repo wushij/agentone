@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.utils.pagination import clamp_page, page_result
@@ -84,12 +84,20 @@ def _query_logs(
         )
         return [_fmt_audit(r) for r in rows], total
 
-    rows, total = AuditLogService(db).list_logs(
-        user_id=user.id,
-        module="system",
-        page=page,
-        page_size=page_size,
-    )
+    # 系统日志：包含当前用户引发的系统操作日志，以及系统全局（user_id 为 None）的运维/配置日志
+    stmt = select(AuditLog).where(AuditLog.module == "system")
+    count_stmt = select(func.count()).select_from(AuditLog).where(AuditLog.module == "system")
+    if not getattr(user, "is_superuser", False):
+        cond = or_(AuditLog.user_id == user.id, AuditLog.user_id.is_(None))
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+
+    total = int(db.scalar(count_stmt) or 0)
+    rows = db.scalars(
+        stmt.order_by(desc(AuditLog.created_at))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
     return [_fmt_audit(r) for r in rows], total
 
 

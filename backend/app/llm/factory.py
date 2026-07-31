@@ -10,7 +10,16 @@ from app.providers import get_provider
 from app.config.settings import get_settings
 
 
-def create_chat_model_from_config(cfg: ModelConfig, **kwargs) -> BaseChatModel:
+def _nudge_temperature(base: float, thinking_level: str) -> float:
+    """扩展思考档位→温度微调：快速更确定、深度更严谨。"""
+    if thinking_level == "fast":
+        return max(0.0, min(base, 0.3))
+    if thinking_level == "extended":
+        return max(0.0, round(base * 0.8, 3))
+    return base
+
+
+def create_chat_model_from_config(cfg: ModelConfig, *, thinking_level: str = "standard", **kwargs) -> BaseChatModel:
     if cfg.provider == "mock":
         return MockChatModel()
     api_key = cfg.api_key
@@ -28,13 +37,13 @@ def create_chat_model_from_config(cfg: ModelConfig, **kwargs) -> BaseChatModel:
         model_name=cfg.model_name,
         api_key=api_key or "",
         base_url=base_url,
-        temperature=float(cfg.temperature),
+        temperature=_nudge_temperature(float(cfg.temperature), thinking_level),
         streaming=streaming,
         **kwargs,
     )
 
 
-def create_chat_model(*, model: str | None = None, temperature: float | None = None) -> BaseChatModel:
+def create_chat_model(*, model: str | None = None, temperature: float | None = None, thinking_level: str = "standard") -> BaseChatModel:
     from app.db.session import SessionLocal
     from app.services.llm.model_service import ModelService
     from app.services.system.settings_store import settings_store
@@ -44,7 +53,7 @@ def create_chat_model(*, model: str | None = None, temperature: float | None = N
         svc = ModelService(db)
         cfg = svc.resolve_model(model)
         if cfg:
-            return create_chat_model_from_config(cfg)
+            return create_chat_model_from_config(cfg, thinking_level=thinking_level)
     finally:
         db.close()
 
@@ -52,6 +61,7 @@ def create_chat_model(*, model: str | None = None, temperature: float | None = N
     store = settings_store.get_all()
     model_name = model or store.get("defaultModel") or settings.DEEPSEEK_MODEL
     temp = temperature if temperature is not None else float(store.get("defaultTemperature", 0.7))
+    temp = _nudge_temperature(temp, thinking_level)
 
     if settings.LLM_PROVIDER == "deepseek" and settings.DEEPSEEK_API_KEY:
         provider = get_provider("deepseek")

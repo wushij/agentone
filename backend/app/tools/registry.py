@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from app.tools.base import BaseTool
 from app.tools.compute.calculator import CalculatorTool
+from app.tools.compute.python_executor import PythonExecutorTool
+from app.tools.data.chart import ChartTool
 from app.tools.database.database import DatabaseTool
 from app.tools.file.file import FileTool
+from app.tools.network.http_request import HttpRequestTool
 from app.tools.network.search import SearchTool
 
 _TOOLS: dict[str, BaseTool] = {
@@ -13,6 +16,9 @@ _TOOLS: dict[str, BaseTool] = {
     SearchTool.name: SearchTool(),
     FileTool.name: FileTool(),
     DatabaseTool.name: DatabaseTool(),
+    PythonExecutorTool.name: PythonExecutorTool(),
+    ChartTool.name: ChartTool(),
+    HttpRequestTool.name: HttpRequestTool(),
 }
 
 
@@ -65,4 +71,4 @@ class ToolRegistry:
         return list_builtin_tools()
 
 
-tool_registry = ToolRegistry()
+tool_registry = ToolRegistry()

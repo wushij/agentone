@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CopyDocument, Delete, RefreshRight, Compass, Document } from '@element-plus/icons-vue'
+import { CopyDocument, Delete, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useStreamingMarkdown } from '@/composables/useStreamingMarkdown'
 import ToolCallCard from './ToolCallCard.vue'
 import ChatThinkingSteps from './ChatThinkingSteps.vue'
+import ChatMessageSources from './ChatMessageSources.vue'
+import ArtifactCard from './ArtifactCard.vue'
 import BrandMark from '@/components/BrandMark.vue'
 import type { ChatMessage } from '@/types'
 
@@ -126,37 +128,7 @@ async function copyContent() {
       </div>
 
       <div v-else class="bubble bubble--ai" :class="{ 'bubble--retrieve': !!directRetrieval }">
-        <div v-if="directRetrieval" class="direct-retrieval-container">
-          <div class="retrieval-header">
-            <div class="header-icon"><el-icon><Compass /></el-icon></div>
-            <div class="header-text">
-              <h4>知识库直接检索结果</h4>
-            </div>
-          </div>
-          
-          <div class="retrieval-sources">
-            <div v-for="(source, idx) in directRetrieval.sources" :key="idx" class="source-card">
-              <div class="source-meta">
-                <span class="source-title">{{ source.title }}</span>
-                <el-tag size="small" class="kb-tag" effect="light">{{ source.kbName }}</el-tag>
-              </div>
-              
-              <div v-if="source.isQa" class="source-content qa-format">
-                <div class="qa-item q-item">
-                  <span class="qa-badge q-badge">问</span>
-                  <p class="qa-text">{{ source.question }}</p>
-                </div>
-                <div class="qa-item a-item">
-                  <span class="qa-badge a-badge">答</span>
-                  <p class="qa-text">{{ source.answer }}</p>
-                </div>
-              </div>
-              <div v-else class="source-content text-format">
-                <pre class="raw-content">{{ source.content }}</pre>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChatMessageSources v-if="directRetrieval" :direct-retrieval="directRetrieval" />
         <div v-else-if="html" class="chat-markdown" v-html="html" />
         <div v-else-if="message.streaming && !message.content" class="bubble-placeholder">
           <span class="placeholder-text">正在组织回答…</span>
@@ -164,33 +136,10 @@ async function copyContent() {
         <div v-else class="bubble-empty">（无内容）</div>
       </div>
 
-      <div v-if="!isUser && message.sources?.length" class="message-citations">
-        <span class="citations-label">
-          <el-icon :size="13"><Document /></el-icon>
-          引用来源
-        </span>
-        <el-popover
-          v-for="src in message.sources"
-          :key="src.index"
-          placement="top"
-          :width="320"
-          trigger="click"
-          popper-class="citation-popover"
-        >
-          <template #reference>
-            <span class="citation-chip">[{{ src.index }}]</span>
-          </template>
-          <div class="citation-detail">
-            <div class="citation-head">
-              <span class="citation-file">{{ src.fileName || '未知文件' }}</span>
-              <el-tag v-if="src.kbName" size="small" effect="light">{{ src.kbName }}</el-tag>
-            </div>
-            <div v-if="typeof src.score === 'number'" class="citation-score">
-              匹配度 {{ src.score.toFixed(2) }}
-            </div>
-            <p class="citation-text">{{ src.text }}</p>
-          </div>
-        </el-popover>
+      <ChatMessageSources v-if="!isUser && message.sources?.length && !directRetrieval" :sources="message.sources" />
+
+      <div v-if="!isUser && message.artifacts?.length" class="message-artifacts">
+        <ArtifactCard v-for="art in message.artifacts" :key="art.id" :artifact="art" />
       </div>
 
       <div v-if="showActions" class="message-actions">
@@ -359,229 +308,17 @@ async function copyContent() {
   font-style: italic;
 }
 
-/* 知识库直检卡片专属优美排版 */
+/* 知识库直检卡片入口（卡片详情样式已移入 ChatMessageSources.vue） */
 .bubble--retrieve {
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
 }
 
-.direct-retrieval-container {
-  width: 100%;
-  background: var(--ao-panel-bg);
-  border: 1px solid var(--ao-panel-border);
-  border-radius: 18px;
-  padding: 20px;
-  margin-top: 4px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
-}
-
-.retrieval-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px dashed var(--ao-border);
-}
-
-.header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(79, 70, 229, 0.08);
-  color: var(--theme-primary);
-  font-size: 18px;
-}
-
-.header-text h4 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ao-text-primary);
-}
-
-.header-text .subtitle {
-  margin: 2px 0 0;
-  font-size: 11px;
-  color: var(--ao-text-muted);
-}
-
-.retrieval-sources {
+.message-artifacts {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.source-card {
-  background: var(--ao-retrieval-source-bg);
-  border: 1px solid var(--ao-border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  transition: all 0.2s ease;
-}
-
-.source-card:hover {
-  background: var(--ao-surface);
-  border-color: rgba(79, 70, 229, 0.22);
-  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.04);
-}
-
-.source-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
   gap: 8px;
-}
-
-.source-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ao-text-primary);
-}
-
-.kb-tag {
-  border-radius: 6px;
-  background: rgba(79, 70, 229, 0.04);
-  color: var(--theme-primary);
-  border: 1px solid rgba(79, 70, 229, 0.08);
-}
-
-.source-content {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--ao-text-secondary);
-}
-
-.text-format .raw-content {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  font-size: 13px;
-  background: var(--ao-retrieval-inner-bg);
-  padding: 12px 14px;
-  border-radius: 8px;
-  color: var(--ao-text-secondary);
-  border: 1px solid var(--ao-border);
-}
-
-.qa-format {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--ao-retrieval-inner-bg);
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--ao-border);
-}
-
-.qa-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.qa-badge {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.q-badge {
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--ao-qa-q-color);
-}
-
-.a-badge {
-  background: rgba(13, 148, 136, 0.12);
-  color: var(--ao-qa-a-color);
-}
-
-.qa-text {
-  margin: 0;
-  flex: 1;
-  font-size: 13px;
-}
-
-.message-citations {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
   margin-top: 8px;
-}
-
-.citations-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--ao-text-secondary, #94a3b8);
-}
-
-.citation-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--theme-primary, #4f46e5);
-  background: color-mix(in srgb, var(--theme-primary, #4f46e5) 12%, transparent);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.citation-chip:hover {
-  background: color-mix(in srgb, var(--theme-primary, #4f46e5) 22%, transparent);
-}
-
-.citation-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.citation-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.citation-file {
-  font-weight: 600;
-  font-size: 13px;
-  word-break: break-all;
-}
-
-.citation-score {
-  font-size: 12px;
-  color: var(--ao-text-secondary, #94a3b8);
-}
-
-.citation-text {
-  margin: 0;
-  max-height: 200px;
-  overflow-y: auto;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  color: var(--ao-text-primary, #e2e8f0);
 }
 </style>

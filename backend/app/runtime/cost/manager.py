@@ -138,7 +138,7 @@ class CostManager:
                     .group_by(col)
                 ).all()
                 return [
-                    {"key": str(r[0] or "unknown"), "costUsd": round(float(r[1] or 0), 6), "tokens": int(r[2] or 0)}
+                    {"groupKey": str(r[0] or "unknown"), "costUsd": round(float(r[1] or 0), 6), "tokens": int(r[2] or 0)}
                     for r in rows
                 ]
 

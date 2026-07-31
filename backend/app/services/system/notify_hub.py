@@ -42,9 +42,11 @@ class ConnectionManager:
 
 
 
-    async def connect(self, user_id: int, websocket: WebSocket, *, kick_existing: bool = True) -> None:
+    async def connect(self, user_id: int, websocket: WebSocket, *, kick_existing: bool = True, accept: bool = True) -> None:
 
-        await websocket.accept()
+        if accept:
+
+            await websocket.accept()
 
         self._subscriptions[websocket] = set(_DEFAULT_TOPICS)
 

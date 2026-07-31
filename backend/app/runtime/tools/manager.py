@@ -99,6 +99,11 @@ class ToolManager:
         if validation_error:
             return ToolResult(output="", duration_ms=0, error=validation_error)
 
+        # HITL 审批闸门（§16.2）：仅当上下文开启审批且工具需审批时挂起等待
+        approval_error = await self._maybe_await_approval(tool, arguments, context)
+        if approval_error:
+            return ToolResult(output="", duration_ms=0, error=approval_error)
+
         await self._publish_event("ToolStart", {"tool": name, "arguments": arguments, **self._ctx_payload(context)})
         started = time.perf_counter()
         try:
@@ -123,6 +128,46 @@ class ToolManager:
             },
         )
         return result
+
+    def _needs_approval(self, tool: BaseTool, context: dict[str, Any] | None) -> bool:
+        """是否需要人工审批：上下文显式开启 HITL，且工具标记高危或在审批清单内。"""
+        ctx = context or {}
+        if not ctx.get("hitl") and not ctx.get("approval"):
+            return False
+        if getattr(tool, "requires_approval", False):
+            return True
+        try:
+            from app.services.system.settings_store import settings_store
+
+            raw = settings_store.get("approvalRequiredTools", "") or ""
+            names = {n.strip() for n in raw.replace("\n", ",").split(",") if n.strip()}
+            return tool.name in names
+        except Exception:
+            return False
+
+    async def _maybe_await_approval(
+        self, tool: BaseTool, arguments: dict[str, Any], context: dict[str, Any] | None
+    ) -> str:
+        """需审批则挂起等待；返回非空错误串表示被拒绝/无法审批而中止。"""
+        if not self._needs_approval(tool, context):
+            return ""
+        ctx = context or {}
+        user_id = ctx.get("user_id")
+        if not user_id:
+            return ""  # 无用户上下文（如离线评测）不阻断
+        try:
+            from app.runtime.hitl import get_approval_gate
+
+            approved = await get_approval_gate().request(
+                user_id=int(user_id),
+                action=f"执行高危工具「{tool.name}」",
+                payload={"tool": tool.name, "arguments": arguments},
+                task_id=ctx.get("task_id"),
+            )
+            return "" if approved else f"操作被拒绝或超时未批准：{tool.name}"
+        except Exception as exc:
+            logger.warning(f"[ToolManager] 审批闸门异常，放行执行: {exc}")
+            return ""
 
     async def execute_many(
         self,

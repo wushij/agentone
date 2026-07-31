@@ -2,7 +2,9 @@
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db
 from app.utils.response import success
 from app.api.v1.deps import require_permission
 from app.models.user import User
@@ -82,10 +84,46 @@ def get_settings_api(user: User = Depends(require_permission("config:manage"))):
 async def update_settings_api(
     body: SettingsUpdateRequest,
     user: User = Depends(require_permission("config:manage")),
+    db: Session = Depends(get_db),
 ):
     data = body.model_dump(by_alias=True, exclude_none=True)
-    prev = settings_store.get_all()
+    prev = dict(settings_store.get_all())
     updated = settings_store.update(data)
     if body.announcement is not None and body.announcement != prev.get("announcement"):
         await _broadcast_announcement(body.announcement)
+
+    try:
+        from app.services.system.audit_log_service import AuditLogService
+        field_labels = {
+            "siteName": "网站名称",
+            "announcement": "系统公告",
+            "defaultModel": "默认模型",
+            "defaultTemperature": "温度参数",
+            "maxContext": "最大上下文",
+            "jwtExpireMinutes": "登录有效时长",
+            "rateLimitEnabled": "限流开关",
+            "rateLimitPerMinute": "每分钟频次限制",
+            "ipBlacklist": "IP黑名单",
+            "theme": "系统主题",
+            "colorMode": "亮暗模式",
+        }
+        changes = []
+        for k, v in data.items():
+            old_v = prev.get(k)
+            if old_v != v and str(old_v) != str(v):
+                label = field_labels.get(k, k)
+                old_str = "无" if old_v is None else str(old_v)
+                new_str = "无" if v is None else str(v)
+                changes.append(f"{label} [{old_str} ➔ {new_str}]")
+        detail_msg = f"修改了系统配置: {', '.join(changes)}" if changes else "保存了系统配置 (无参数变更)"
+
+        AuditLogService(db).write(
+            user_id=user.id,
+            module="system",
+            action="update_settings",
+            detail=detail_msg,
+        )
+    except Exception:
+        pass
+
     return success(updated, message="保存成功")

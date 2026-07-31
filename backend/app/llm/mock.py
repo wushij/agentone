@@ -170,9 +170,11 @@ class MockChatModel(BaseChatModel):
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         text = self._build_reply(messages)
-        for char in text:
+        # 降低逐字人工延迟（性能）：每 4 个字符 sleep 一次，保留流式观感的同时显著减少总耗时
+        for i, char in enumerate(text):
             yield ChatGenerationChunk(message=AIMessageChunk(content=char))
-            await asyncio.sleep(0.005)
+            if i % 4 == 0:
+                await asyncio.sleep(0.006)
 
     def _build_reply(self, messages: list[BaseMessage]) -> str:
         user_text = ""

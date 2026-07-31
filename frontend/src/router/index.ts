@@ -36,6 +36,12 @@ const router = createRouter({
           meta: { title: 'AI 对话', permission: 'chat:read', fullBleed: true }
         },
         {
+          path: 'memories',
+          name: 'memories',
+          component: () => import('@/views/MemoryView.vue'),
+          meta: { title: 'AI 记忆', permission: 'chat:read' }
+        },
+        {
           path: 'agent',
           name: 'agent',
           component: () => import('@/views/agent/AgentView.vue'),
@@ -76,6 +82,12 @@ const router = createRouter({
           name: 'logs',
           component: () => import('@/views/admin/LogsView.vue'),
           meta: { title: '日志中心', permission: 'log:read' }
+        },
+        {
+          path: 'cost',
+          name: 'cost',
+          component: () => import('@/views/admin/CostView.vue'),
+          meta: { title: '成本中心', permission: 'config:manage' }
         },
         {
           path: 'settings',

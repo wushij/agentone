@@ -30,24 +30,13 @@ from app.core.events.events import (
 )
 from app.core.context.state import AgentState, init_state
 from app.tools.registry import get_tool, is_tool_enabled
+from app.utils.logger import logger
 
 AgentStatusCallback = Callable[[AgentStatusEvent], Awaitable[None] | None]
 
 
 def create_checkpointer():
     from langgraph.checkpoint.memory import MemorySaver
-
-    try:
-        from app.config.settings import get_settings
-        settings = get_settings()
-        if settings.REDIS_URL:
-            try:
-                from langgraph.checkpoint.redis import RedisSaver
-                return RedisSaver.from_conn_string(settings.REDIS_URL)
-            except ImportError:
-                pass
-    except Exception:
-        pass
     return MemorySaver()
 
 
@@ -592,7 +581,8 @@ class GraphRunner:
             yield done_event(ctx, "stop")
 
         except Exception as exc:
-            yield error_event(ctx, "LLM_TIMEOUT", str(exc))
+            logger.error(f"[Engine] Stream SSE error: {exc}", exc_info=True)
+            yield error_event(ctx, "LLM_TIMEOUT", str(exc) or "调用大模型失败，请检查 API Key 或模型配置")
             yield done_event(ctx, "error")
 
     async def stream_sse_encoded(self, user_input: str, **kwargs: Any) -> AsyncIterator[str]:

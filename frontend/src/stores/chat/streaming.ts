@@ -3,12 +3,13 @@ import { ElMessage } from 'element-plus'
 import {
   createChatStream,
   createRegenerateStream,
+  type SseSourcesPayload,
   type SseTokenPayload,
   type SseStepPayload,
   type SseToolEndPayload,
   type SseToolStartPayload
 } from '@/api/chat'
-import type { ChatMessage, ConversationSummary, WorkflowStep } from '@/types'
+import type { ChatMessage, ConversationSummary, MessageSource, WorkflowStep } from '@/types'
 import { nowIso, saveLastConversationId, uid } from './helpers'
 
 export interface ChatStreamContext {
@@ -93,9 +94,45 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     tool.durationMs = payload.durationMs
   }
 
+  function setSources(convId: string, payload: SseSourcesPayload) {
+    const msg = getStreamingMessage(convId)
+    if (!msg) return
+    const list = (payload.sources || []).map(
+      (s): MessageSource => ({
+        index: s.index,
+        kbId: s.kbId,
+        kbName: s.kbName,
+        fileName: s.fileName,
+        score: s.score,
+        text: s.text
+      })
+    )
+    if (list.length) msg.sources = list
+  }
+
+  function cleanupRunningSteps(msg: ChatMessage) {
+    if (msg.steps) {
+      for (const step of msg.steps) {
+        if (step.status === 'running' || step.status === 'pending') {
+          step.status = 'error'
+        }
+      }
+    }
+    if (msg.tools) {
+      for (const tool of msg.tools) {
+        if (tool.status === 'running') {
+          tool.status = 'done'
+        }
+      }
+    }
+  }
+
   function finishMessage(convId: string) {
     const msg = getStreamingMessage(convId)
-    if (msg) msg.streaming = false
+    if (msg) {
+      cleanupRunningSteps(msg)
+      msg.streaming = false
+    }
     ctx.setConversationStreaming(convId, false)
     ctx.setAbortController(convId, null)
 
@@ -117,7 +154,10 @@ export function createChatStreaming(ctx: ChatStreamContext) {
     ctx.setAbortController(id, null)
     ctx.setConversationStreaming(id, false)
     const msg = getStreamingMessage(id)
-    if (msg) msg.streaming = false
+    if (msg) {
+      cleanupRunningSteps(msg)
+      msg.streaming = false
+    }
   }
 
   function updateStep(convId: string, payload: SseStepPayload) {
@@ -147,6 +187,7 @@ export function createChatStreaming(ctx: ChatStreamContext) {
       onStep: (p: SseStepPayload) => updateStep(convId, p),
       onToolStart: (p: SseToolStartPayload) => startTool(convId, p),
       onToolEnd: (p: SseToolEndPayload) => endTool(convId, p),
+      onSources: (p: SseSourcesPayload) => setSources(convId, p),
       onUsage: (p: { totalTokens: number }) => {
         const msg = getStreamingMessage(convId)
         if (msg) msg.tokens = p.totalTokens

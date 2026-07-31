@@ -21,6 +21,7 @@ pnpm-debug.log*
 
 # Runtime Storage & Data
 backend/data/
+backend/qdrant_db/
 *.db
 *.sqlite
 *.sqlite3

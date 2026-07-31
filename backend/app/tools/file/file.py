@@ -6,6 +6,8 @@ import time
 from datetime import datetime
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.db.session import SessionLocal
 from app.services.file.file_service import FileService
 from app.services.rag.rag_service import extract_file_text
@@ -58,9 +60,15 @@ def _pick_target(files, query: str):
     return best, f"按模糊匹配选择「{best.original_name}」（相似度较低，可指定更准确的文件名）"
 
 
+class FileArgs(BaseModel):
+    query: str = Field(default="", description="文件名关键词；留空表示列出文件清单")
+
+
 class FileTool(BaseTool):
     name = "file"
     description = "读取用户已上传文件：支持列出文件清单、按文件名模糊匹配、提取文本预览"
+    args_schema = FileArgs
+    timeout_s = 15.0
 
     async def run(self, **kwargs: Any) -> ToolResult:
         started = time.perf_counter()

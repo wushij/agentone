@@ -45,7 +45,10 @@ class RedisCache:
             from app.db.redis import get_redis
 
             redis = await get_redis()
-            await redis.set(full, payload, ex=ttl)
+            if ttl and ttl > 0:
+                await redis.set(full, payload, ex=ttl)
+            else:
+                await redis.set(full, payload)
         except Exception as exc:
             logger.warning(f"[RedisCache] SET 失败 (key={full})，降级到内存: {exc}")
             expires = time.time() + ttl if ttl > 0 else None

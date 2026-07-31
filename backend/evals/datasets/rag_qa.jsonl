@@ -1,0 +1,10 @@
+{"id": 1, "query": "AgentOne 的后端用什么框架？", "context": "AgentOne 后端采用 FastAPI + LangGraph 构建，数据库为 MySQL，缓存与消息用 Redis。", "reference": "后端采用 FastAPI 与 LangGraph。"}
+{"id": 2, "query": "AgentOne 前端技术栈是什么？", "context": "前端采用 Vue 3 + Element Plus + Pinia + Vite 构建单页应用。", "reference": "前端使用 Vue 3、Element Plus、Pinia 与 Vite。"}
+{"id": 3, "query": "知识库检索用的是什么模式？", "context": "知识库支持 fulltext、vector、hybrid 三种检索模式，hybrid 融合向量与 BM25 词法分。", "reference": "支持全文、向量与混合三种模式，混合模式融合向量与 BM25。"}
+{"id": 4, "query": "会话数据存在哪里？", "context": "对话与消息持久化在 MySQL 的 conversations 与 messages 表，会话断点由 Redis checkpoint 保存。", "reference": "会话与消息存在 MySQL，断点存 Redis。"}
+{"id": 5, "query": "系统如何做鉴权？", "context": "系统使用 JWT 做认证，配合 RBAC 角色权限，Token 支持黑名单与轮换刷新。", "reference": "使用 JWT + RBAC，支持 Token 黑名单与刷新。"}
+{"id": 6, "query": "工具调用失败会怎样？", "context": "工具由 ToolManager 统一执行，单工具超时保护，连续失败 5 次自动熔断禁用并告警。", "reference": "有超时保护，连续失败 5 次会熔断禁用并告警。"}
+{"id": 7, "query": "记忆是怎么持久化的？", "context": "长期记忆存入 MySQL memories 表，含向量与 importance，重启不丢，支持衰减遗忘。", "reference": "长期记忆落 MySQL memories 表，支持衰减遗忘，重启不丢。"}
+{"id": 8, "query": "成本是如何统计的？", "context": "每次 LLM 调用记一条 cost_records，含 provider/model/tokens/cost，可按用户/天/模型聚合出账。", "reference": "每次调用落 cost_records，可多维聚合出账。"}
+{"id": 9, "query": "支持哪些大模型提供商？", "context": "LLM 层支持 DeepSeek、OpenAI、Qwen、Gemini、Ollama 五个提供商，另有 Mock 演示模型。", "reference": "支持 DeepSeek、OpenAI、Qwen、Gemini、Ollama 及 Mock。"}
+{"id": 10, "query": "查询变换有哪些技术？", "context": "查询变换层支持 Rewrite 改写、MultiQuery 多查询扩展、HyDE 假想答案、Step-back 上位概念。", "reference": "支持 Rewrite、MultiQuery、HyDE 与 Step-back。"}

@@ -10,6 +10,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.tools.base import BaseTool, ToolResult
 from app.tools.text.tool_text import extract_search_query
 
@@ -124,9 +126,15 @@ def _format_results(query: str, results: list[dict[str, str]]) -> str:
     return "\n".join(lines).strip()
 
 
+class SearchArgs(BaseModel):
+    query: str = Field(description="搜索关键词，提取用户问题的核心检索词")
+
+
 class SearchTool(BaseTool):
     name = "search"
     description = "网络搜索：检索互联网公开信息、新闻与百科摘要（DuckDuckGo）"
+    args_schema = SearchArgs
+    timeout_s = 20.0
 
     async def run(self, **kwargs: Any) -> ToolResult:
         started = time.perf_counter()

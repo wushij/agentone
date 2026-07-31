@@ -203,9 +203,13 @@ const sectionLabel = computed(() => props.section ?? (route.meta.section as stri
 .page-banner__actions :deep(.el-select__suffix),
 .page-banner__actions :deep(.el-select .el-input__suffix-inner),
 .page-banner__actions :deep(.el-select .el-input__prefix-inner),
-.page-banner__actions :deep(.el-icon) {
+.page-banner__actions :deep(.el-select .el-icon) {
   color: #334155 !important;
   font-size: 14px !important;
   opacity: 1 !important;
+}
+
+.page-banner__actions :deep(.el-button .el-icon) {
+  color: inherit !important;
 }
 </style>

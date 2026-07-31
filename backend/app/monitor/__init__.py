@@ -1,18 +1,19 @@
-"""app/monitor — 系统监控、Token 统计与 OTEL 指标导出"""
+"""app/monitor — 系统监控、Token 统计与指标导出"""
 
-from app.monitor.cost import calculate_llm_cost
-from app.utils.logger import logger
-from app.monitor.metrics import metrics_tracker
+from app.monitor.cost import estimate_cost_usd
+from app.monitor.metrics import MetricsRegistry, get_metrics
 from app.monitor.otel import OtelExporter, otel_exporter
-from app.monitor.token import estimate_tokens
-from app.monitor.trace import trace_logger
+from app.utils.logger import logger
+
+# 兼容别名（历史代码引用 metrics_tracker）
+metrics_tracker = get_metrics()
 
 __all__ = [
+    "MetricsRegistry",
     "OtelExporter",
-    "calculate_llm_cost",
-    "estimate_tokens",
+    "estimate_cost_usd",
+    "get_metrics",
     "logger",
     "metrics_tracker",
     "otel_exporter",
-    "trace_logger",
 ]

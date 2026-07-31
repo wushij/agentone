@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     DEEPSEEK_MODEL: str = "deepseek-chat"
     TOOL_MAX_RETRIES: int = 3
 
+    # 向量库（§8.1）：空=使用 JSON 向量存储；设置后启用 Qdrant
+    QDRANT_URL: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

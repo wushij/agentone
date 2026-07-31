@@ -1,0 +1,50 @@
+{"id": 1, "query": "帮我算一下 123 * 456 等于多少", "expected_tool": "calculator"}
+{"id": 2, "query": "计算 (3+5)*12", "expected_tool": "calculator"}
+{"id": 3, "query": "sqrt(2) 保留两位小数是多少", "expected_tool": "calculator"}
+{"id": 4, "query": "256 除以 8 再乘 3", "expected_tool": "calculator"}
+{"id": 5, "query": "帮我算 15% 的 2000 是多少", "expected_tool": "calculator"}
+{"id": 6, "query": "log10(1000) 等于几", "expected_tool": "calculator"}
+{"id": 7, "query": "1024 + 2048 + 4096 的和", "expected_tool": "calculator"}
+{"id": 8, "query": "3 的 10 次方是多少", "expected_tool": "calculator"}
+{"id": 9, "query": "请计算 88 * 99 - 100", "expected_tool": "calculator"}
+{"id": 10, "query": "算一下 365 天有多少小时", "expected_tool": "calculator"}
+{"id": 11, "query": "搜索一下 LangGraph 是什么", "expected_tool": "search"}
+{"id": 12, "query": "帮我查一下今天的 AI 新闻", "expected_tool": "search"}
+{"id": 13, "query": "网上搜一下 FastAPI 和 Flask 的区别", "expected_tool": "search"}
+{"id": 14, "query": "search python 3.13 new features", "expected_tool": "search"}
+{"id": 15, "query": "查询资料：什么是向量数据库", "expected_tool": "search"}
+{"id": 16, "query": "帮我搜索 MCP 协议的介绍", "expected_tool": "search"}
+{"id": 17, "query": "google 一下 transformer 架构", "expected_tool": "search"}
+{"id": 18, "query": "搜一下 DeepSeek 最新的模型", "expected_tool": "search"}
+{"id": 19, "query": "查一下 Qdrant 向量库的性能", "expected_tool": "search"}
+{"id": 20, "query": "帮我查 Vue3 组合式 API 的用法", "expected_tool": "search"}
+{"id": 21, "query": "有多少用户", "expected_tool": "database"}
+{"id": 22, "query": "统计一下会话数量", "expected_tool": "database"}
+{"id": 23, "query": "消息总数是多少", "expected_tool": "database"}
+{"id": 24, "query": "SELECT COUNT(*) FROM users", "expected_tool": "database"}
+{"id": 25, "query": "数据库里有哪些表", "expected_tool": "database"}
+{"id": 26, "query": "查询最近的工具调用日志", "expected_tool": "database"}
+{"id": 27, "query": "最近注册的用户有哪些", "expected_tool": "database"}
+{"id": 28, "query": "audit 日志有多少条", "expected_tool": "database"}
+{"id": 29, "query": "统计正常状态的用户数量", "expected_tool": "database"}
+{"id": 30, "query": "系统里模型配置有多少个", "expected_tool": "database"}
+{"id": 31, "query": "我上传了哪些文件", "expected_tool": "file"}
+{"id": 32, "query": "列出我的文件清单", "expected_tool": "file"}
+{"id": 33, "query": "读取文件 report.pdf", "expected_tool": "file"}
+{"id": 34, "query": "打开文件 需求文档.docx 看看内容", "expected_tool": "file"}
+{"id": 35, "query": "查看文件 data.xlsx 的内容", "expected_tool": "file"}
+{"id": 36, "query": "读一下我刚上传的 PDF", "expected_tool": "file"}
+{"id": 37, "query": "我的文件里有没有合同相关的", "expected_tool": "file"}
+{"id": 38, "query": "看看文件 总结.md 写了什么", "expected_tool": "file"}
+{"id": 39, "query": "你好呀", "expected_tool": "none"}
+{"id": 40, "query": "给我讲个笑话", "expected_tool": "none"}
+{"id": 41, "query": "你是谁，你能做什么", "expected_tool": "none"}
+{"id": 42, "query": "写一首关于秋天的诗", "expected_tool": "none"}
+{"id": 43, "query": "解释一下什么是递归", "expected_tool": "none"}
+{"id": 44, "query": "谢谢你，再见", "expected_tool": "none"}
+{"id": 45, "query": "把这段话润色得更正式一些：我们的产品很好用", "expected_tool": "none"}
+{"id": 46, "query": "Python 里 list 和 tuple 有什么区别", "expected_tool": "none"}
+{"id": 47, "query": "帮我想五个公众号的名字", "expected_tool": "none"}
+{"id": 48, "query": "今天心情不好，安慰我一下", "expected_tool": "none"}
+{"id": 49, "query": "总结一下敏捷开发的核心理念", "expected_tool": "none"}
+{"id": 50, "query": "用一句话介绍量子计算", "expected_tool": "none"}

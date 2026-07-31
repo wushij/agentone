@@ -6,6 +6,7 @@ import re
 import time
 from typing import Any
 
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.db.session import SessionLocal
@@ -97,12 +98,21 @@ def _format_rows(keys: list[str], rows: list) -> str:
     return f"查询成功，返回 {len(rows)} 行数据：\n" + "\n".join(lines) + suffix
 
 
+class DatabaseArgs(BaseModel):
+    query: str = Field(
+        default="",
+        description="自然语言统计问题（如'有多少用户'）或 SELECT 只读 SQL；留空返回表结构说明",
+    )
+
+
 class DatabaseTool(BaseTool):
     name = "database"
     description = (
         "系统只读数据库查询：支持自然语言统计（用户数、会话数等）"
         "与手写 SELECT 查询"
     )
+    args_schema = DatabaseArgs
+    timeout_s = 10.0
 
     async def run(self, **kwargs: Any) -> ToolResult:
         started = time.perf_counter()

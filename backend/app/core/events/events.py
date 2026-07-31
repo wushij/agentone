@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
-SseEventType = Literal["token", "tool_start", "tool_end", "usage", "done", "error", "step"]
+SseEventType = Literal["token", "tool_start", "tool_end", "usage", "done", "error", "step", "sources"]
 
 NODE_LABELS: dict[str, str] = {
     "prepare": "准备处理",
@@ -157,5 +157,17 @@ def error_event(ctx: StreamContext, code: str, message: str) -> SseEvent:
             "messageId": ctx.message_id,
             "code": code,
             "message": message,
+        },
+    )
+
+
+def sources_event(ctx: StreamContext, sources: list[dict[str, Any]]) -> SseEvent:
+    """引用溯源（§8.4）：每条 {index, kbId, kbName, fileName, score, text}，前端可点击展开。"""
+    return SseEvent(
+        "sources",
+        {
+            "conversationId": ctx.conversation_id,
+            "messageId": ctx.message_id,
+            "sources": sources,
         },
     )

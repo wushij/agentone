@@ -278,6 +278,11 @@ export function useChatViewProvider(): ChatViewContext {
   async function handleSend() {
     let text = inputText.value.trim()
     if (!text && !attachedFile.value) return
+
+    if (chatStore.streaming) {
+      chatStore.abortStream()
+    }
+
     if (!text && attachedFile.value) {
       text = `请帮我读取并分析刚才上传的文件「${attachedFile.value.name}」。`
     } else if (attachedFile.value) {
@@ -301,7 +306,7 @@ export function useChatViewProvider(): ChatViewContext {
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (!chatStore.streaming) void handleSend()
+      void handleSend()
     }
   }
 

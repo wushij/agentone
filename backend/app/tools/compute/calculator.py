@@ -9,6 +9,8 @@ import re
 import time
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.tools.base import BaseTool, ToolResult
 
 _ALLOWED_OPS = {
@@ -134,12 +136,18 @@ def extract_expression(user_input: str) -> str:
     return _normalize_expression(text)
 
 
+class CalculatorArgs(BaseModel):
+    expression: str = Field(description="要计算的数学表达式，如 '12*(3+4)' 或 'sqrt(2)'")
+
+
 class CalculatorTool(BaseTool):
     name = "calculator"
     description = (
         "安全数学计算器：四则运算、括号、幂运算、百分比，"
         "以及 sqrt/abs/round/min/max/log/sin/cos/tan 等常用函数"
     )
+    args_schema = CalculatorArgs
+    timeout_s = 5.0
 
     async def run(self, **kwargs: Any) -> ToolResult:
         started = time.perf_counter()

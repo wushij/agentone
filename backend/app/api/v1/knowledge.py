@@ -23,20 +23,15 @@ router = APIRouter(prefix="/knowledge", tags=["知识库管理"])
 
 
 def _load_kb() -> list[dict]:
-    path = runtime_json("knowledge.json")
-    if not path.exists():
-        return []
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
+    from app.services.rag.kb_store import load_all
+
+    return load_all()
 
 
 def _save_kb(kb_list: list[dict]):
-    data_root()
-    runtime_json("knowledge.json").write_text(
-        json.dumps(kb_list, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    from app.services.rag.kb_store import save_all
+
+    save_all(kb_list)
 
 
 async def index_kb_files_task(

@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.system.audit_log_service import AuditLogService
 from app.services.conversation.conversation_service import ConversationService
-from app.core.engine.engine import get_engine
+from app.runtime import get_runtime
 from app.services.chat.sse_lock import get_sse_lock_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -180,7 +180,7 @@ async def chat_stream(
         detail=f"conversation={body.conversation_id}",
     )
 
-    runner = get_engine()
+    runner = get_runtime()
     assistant_parts: list[str] = []
     usage_tokens = 0
     assistant_message_id: str | None = None
@@ -225,9 +225,13 @@ async def chat_stream(
 
                     await get_memory_manager().remember_turn(
                         body.conversation_id,
-                        user_text=body.message if hasattr(body, "message") else "",
+                        user_text=body.message,
                         assistant_text=answer,
                     )
+                    # 自动提取长期记忆（后台 fire-and-forget，不阻塞响应，§7.2）
+                    from app.memory import get_persistent_memory
+
+                    get_persistent_memory().schedule_extract(user.id, body.message or "", answer)
                 except Exception:
                     pass
                 new_title = await _persist_assistant_and_title(
@@ -333,7 +337,7 @@ async def chat_regenerate(
         detail=f"conversation={body.conversation_id}",
     )
 
-    runner = get_engine()
+    runner = get_runtime()
     assistant_parts: list[str] = []
     usage_tokens = 0
     assistant_message_id: str | None = None
@@ -378,9 +382,13 @@ async def chat_regenerate(
 
                     await get_memory_manager().remember_turn(
                         body.conversation_id,
-                        user_text=body.message if hasattr(body, "message") else "",
+                        user_text=user_message_content,
                         assistant_text=answer,
                     )
+                    # 自动提取长期记忆（后台 fire-and-forget，不阻塞响应，§7.2）
+                    from app.memory import get_persistent_memory
+
+                    get_persistent_memory().schedule_extract(user.id, user_message_content or "", answer)
                 except Exception:
                     pass
                 new_title = await _persist_assistant_and_title(

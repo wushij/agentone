@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Close, Document, DocumentAdd, Loading, Promotion, VideoPause } from '@element-plus/icons-vue'
+import { Close, Document, Loading, Paperclip, Promotion, VideoPause } from '@element-plus/icons-vue'
 import { useChatView } from '@/composables/useChatView'
 
 const {
@@ -39,16 +39,17 @@ function onFileChange(e: Event) {
       <el-button class="remove-btn" type="text" :icon="Close" circle @click="clearAttachment" />
     </div>
 
-    <div class="composer" :class="{ disabled: chatStore.streaming }">
+    <div class="composer">
       <!-- Attachment upload button -->
       <button
         type="button"
         class="composer-btn composer-btn--attach"
-        :disabled="chatStore.streaming || uploadingFile"
+        title="上传关联文件 (PDF, Word, TXT, MD)"
+        :disabled="uploadingFile"
         @click="triggerFileSelect"
       >
         <el-icon v-if="uploadingFile" class="is-loading"><Loading /></el-icon>
-        <el-icon v-else><DocumentAdd /></el-icon>
+        <el-icon v-else><Paperclip /></el-icon>
       </button>
       <input
         ref="fileInputRef"
@@ -63,11 +64,11 @@ function onFileChange(e: Event) {
         class="chat-textarea"
         placeholder="输入消息，Enter 发送，Shift+Enter 换行"
         rows="1"
-        :disabled="chatStore.streaming"
         @keydown="handleKeydown"
       />
       <button v-if="chatStore.streaming" type="button" class="action-btn action-btn--stop" @click="handleStop">
-        <el-icon><VideoPause /></el-icon>停止
+        <el-icon class="stop-icon"><VideoPause /></el-icon>
+        <span>停止</span>
       </button>
       <button
         v-else
@@ -105,28 +106,30 @@ function onFileChange(e: Event) {
   border-color: rgba(79, 70, 229, 0.4);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
-.composer.disabled {
-  opacity: 0.85;
-}
 
 .composer-btn--attach {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: var(--ao-text-muted);
+  width: 32px;
+  height: 32px;
+  border: none !important;
+  background: transparent !important;
+  color: var(--ao-text-muted, #94a3b8);
   cursor: pointer;
   border-radius: 50%;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  font-size: 18px;
 }
 .composer-btn--attach:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--theme-primary);
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: var(--theme-primary, #6366f1) !important;
+  transform: scale(1.1);
+}
+.composer-btn--attach:active:not(:disabled) {
+  transform: scale(0.95);
 }
 .composer-btn--attach:disabled {
   opacity: 0.5;
@@ -195,7 +198,7 @@ function onFileChange(e: Event) {
   font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: all 0.22s ease;
   margin-bottom: 2px;
 }
 .action-btn--send {
@@ -215,10 +218,50 @@ function onFileChange(e: Event) {
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.42);
   transform: translateY(-1px);
 }
+
 .action-btn--stop {
-  background: rgba(239, 68, 68, 0.09) !important;
+  position: relative;
+  background: rgba(239, 68, 68, 0.1) !important;
   color: #ef4444 !important;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.28) !important;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.action-btn--stop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 0;
+}
+
+.action-btn--stop > * {
+  position: relative;
+  z-index: 1;
+  transition: all 0.25s ease;
+}
+
+.action-btn--stop:hover {
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.42), 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+  transform: translateY(-2px) scale(1.04);
+}
+
+.action-btn--stop:hover::before {
+  opacity: 1;
+}
+
+.action-btn--stop:hover .stop-icon {
+  transform: scale(1.2) rotate(-90deg);
+}
+
+.action-btn--stop:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
 }
 
 .input-hint {

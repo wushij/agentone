@@ -1,10 +1,14 @@
-"""app/agents/planner.py — Planner Agent + Intent Detection"""
+"""app/agents/planner.py — Planner Agent + Intent Detection
+
+注意（§3.1）：detect_intent 规则引擎已降级为回退策略（fallback）：
+仅在模型不支持 Function Calling（如 Mock 模式）时生效；
+主链路由 app/runtime/executor/tool_binding.py 的 FC 自主决策。
+Prompt 拼装已收口至 ContextBuilder（§6.1）。
+"""
 
 from __future__ import annotations
 
 import re
-
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.context.state import AgentState, IntentType
 from app.llm.factory import create_chat_model
@@ -15,16 +19,9 @@ from app.tools.text.tool_text import (
     extract_search_query,
     wants_file_list,
 )
-from app.utils.prompt_loader import load_prompt
-
-PLANNER_PROMPT = load_prompt(
-    "planner",
-    "你是一个任务规划代理（Planner Agent）。"
-    "分析用户的输入，判断要解决这个问题需要哪些步骤，并生成一个简洁明了的步骤规划。",
-)
 
 _CALC_HINT = re.compile(
-    r"(计算|算一下|帮我算|请计算|calculate|calc|等于多少|是多少|多少)",
+    r"(计算|算一下|帮我算|请计算|calculate|calc|等于|是多少|多少)",
     re.IGNORECASE,
 )
 
@@ -126,43 +123,46 @@ def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
             return "calculator", "calculator", {"expression": expression}
 
     lowered = text.lower()
-    if any(
-        k in lowered
-        for k in ("搜索", "search", "查一下", "查询资料", "网上", "百度", "google", "duckduckgo")
-    ):
+    if any(k in lowered for k in ("搜索", "search", "查一下", "查询资料", "网上", "百度", "google", "duckduckgo", "搜一下", "搜", "帮我查")):
         return "search", "search", {"query": extract_search_query(text)}
+    if any(k in lowered for k in ("文件", "读取", "上传", "file", "文档", "pdf", "excel")) or wants_file_list(text):
+        return "file", "file", {"query": extract_file_query(text)}
     if any(
         k in lowered
         for k in (
             "数据库",
+            "数据库表",
+            "数据表",
+            "有哪些表",
             "sql",
+            "select",
+            "from",
             "查询表",
             "有多少",
             "多少用户",
             "用户数",
             "会话数",
             "消息数",
+            "消息总数",
             "统计",
             "audit",
             "tool_log",
+            "日志",
+            "注册",
         )
     ):
         return "database", "database", {"query": extract_database_query(text)}
-    if any(k in lowered for k in ("文件", "读取", "上传", "file", "文档", "pdf", "excel")) or wants_file_list(text):
-        return "file", "file", {"query": extract_file_query(text)}
 
     return "chat", "", {}
 
 
 async def planner_node(state: AgentState) -> dict:
-    user_input = state.get("user_input") or ""
     model_id = (state.get("metadata") or {}).get("model_id")
     llm = create_chat_model(model=model_id)
 
-    messages = [
-        SystemMessage(content=PLANNER_PROMPT),
-        HumanMessage(content=f"用户输入: {user_input}"),
-    ]
+    from app.runtime.context.builder import get_context_builder
+
+    messages, _context_state = get_context_builder().build("planner", dict(state))
 
     response = await llm.ainvoke(messages)
     plan = response.content if isinstance(response.content, str) else str(response.content)

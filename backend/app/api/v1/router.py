@@ -9,7 +9,9 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.files import router as files_router
 from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.logs import router as logs_router
+from app.api.v1.memories import router as memories_router
 from app.api.v1.models import router as models_router
+from app.api.v1.monitor import router as monitor_router
 from app.api.v1.prompts import router as prompts_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.tools import router as tools_router
@@ -29,5 +31,7 @@ v1_router.include_router(prompts_router)
 v1_router.include_router(models_router)
 v1_router.include_router(settings_router)
 v1_router.include_router(logs_router)
+v1_router.include_router(memories_router)
+v1_router.include_router(monitor_router)
 v1_router.include_router(users_router)
 v1_router.include_router(ws_router)

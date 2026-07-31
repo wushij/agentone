@@ -51,7 +51,17 @@ export interface ChatMessage {
   tokens?: number
   tools?: ToolCallState[]
   steps?: WorkflowStep[]
+  sources?: MessageSource[]
   streaming?: boolean
+}
+
+export interface MessageSource {
+  index: number
+  kbId?: string
+  kbName?: string
+  fileName?: string
+  score?: number
+  text?: string
 }
 
 export interface ToolCallState {

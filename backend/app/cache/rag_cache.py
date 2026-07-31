@@ -1,4 +1,8 @@
-"""app/cache/rag_cache.py — RAG 检索结果缓存"""
+"""app/cache/rag_cache.py — RAG 检索结果缓存（§8.3 L1）
+
+版本化主动失效：每个 kb 维护一个 version 计数，缓存 key 内嵌所有涉及库的版本；
+文档增删改时 bump_version(kb_id) 使旧 key 自然失效（无需扫描删除）。
+"""
 
 from __future__ import annotations
 
@@ -11,11 +15,18 @@ from app.cache.redis_cache import RedisCache
 class RagCache:
     def __init__(self) -> None:
         self._cache = RedisCache(prefix="agentone:rag")
+        self._ver = RedisCache(prefix="agentone:ragver")
 
-    @staticmethod
-    def make_key(*, kb_ids: list[str], query: str) -> str:
-        ids = ",".join(sorted(str(x) for x in kb_ids))
-        raw = f"{ids}|{query.strip()}"
+    async def _versions(self, kb_ids: list[str]) -> str:
+        parts: list[str] = []
+        for kid in sorted(str(x) for x in kb_ids):
+            v = await self._ver.get(kid)
+            parts.append(f"{kid}:{v or 0}")
+        return "|".join(parts)
+
+    async def make_key(self, *, kb_ids: list[str], query: str) -> str:
+        versions = await self._versions(kb_ids)
+        raw = f"{versions}|{query.strip()}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     async def get(self, key: str) -> list[dict[str, Any]] | None:
@@ -26,3 +37,12 @@ class RagCache:
 
     async def set(self, key: str, chunks: list[dict[str, Any]], *, ttl: int = 600) -> None:
         await self._cache.set(key, chunks, ttl=ttl)
+
+    async def bump_version(self, kb_id: str) -> None:
+        """文档增删改时调用：使该库相关的 L1 缓存 key 全部失效。"""
+        current = await self._ver.get(kb_id)
+        try:
+            nxt = int(current or 0) + 1
+        except Exception:
+            nxt = 1
+        await self._ver.set(kb_id, nxt, ttl=0)

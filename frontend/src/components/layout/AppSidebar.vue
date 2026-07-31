@@ -4,11 +4,13 @@ import { useRoute } from 'vue-router'
 import {
   ChatDotRound,
   Connection,
+  Coin,
   DataBoard,
   Document,
   Files,
   Folder,
   List,
+  MagicStick,
   Setting,
   Tools,
   User,
@@ -40,6 +42,7 @@ const coreGroup: MenuGroup = {
   items: [
     { path: '/dashboard', label: '首页驾驶舱', icon: DataBoard, permission: 'chat:read' },
     { path: '/chat', label: 'AI 对话', icon: ChatDotRound, permission: 'chat:read' },
+    { path: '/memories', label: 'AI 记忆', icon: MagicStick, permission: 'chat:read' },
     { path: '/agent', label: 'Agent 工作流', icon: Connection, permission: 'chat:read' }
   ]
 }
@@ -53,6 +56,7 @@ const adminGroup: MenuGroup = {
     { path: '/files', label: '文件中心', icon: Files, permission: 'config:manage' },
     { path: '/knowledge', label: '知识库管理', icon: Folder, permission: 'config:manage' },
     { path: '/logs', label: '日志中心', icon: List, permission: 'log:read' },
+    { path: '/cost', label: '成本中心', icon: Coin, permission: 'config:manage' },
     { path: '/users', label: '用户管理', icon: UserFilled, permission: 'user:manage' },
     { path: '/profile', label: '个人中心', icon: User },
     { path: '/settings', label: '系统设置', icon: Setting, permission: 'config:manage' }

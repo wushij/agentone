@@ -82,10 +82,20 @@ class MemoryManager:
             parts.append(f"【会话摘要】\n{summary}")
 
         if user_id:
-            facts = await self.long_term.load(user_id, limit=10)
-            if facts:
-                lines = "\n".join(f"- {f.get('content')}" for f in facts)
-                parts.append(f"【用户长期记忆】\n{lines}")
+            # 持久记忆（MySQL + 真向量检索，importance × recency × relevance 融合排序）
+            try:
+                from app.memory.persistent import get_persistent_memory
+
+                hits = await get_persistent_memory().search(int(user_id), query, top_k=5)
+                if hits:
+                    lines = "\n".join(f"- {h['content']}" for h in hits)
+                    parts.append(f"【用户长期记忆】\n{lines}")
+            except Exception:
+                # 降级：进程内旧存储
+                facts = await self.long_term.load(user_id, limit=10)
+                if facts:
+                    lines = "\n".join(f"- {f.get('content')}" for f in facts)
+                    parts.append(f"【用户长期记忆】\n{lines}")
 
         if query:
             hits = await self.vector.search(conversation_id, query, top_k=3)

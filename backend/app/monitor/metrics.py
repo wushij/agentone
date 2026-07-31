@@ -20,6 +20,12 @@ class MetricsRegistry:
         self.by_provider_calls: dict[str, int] = defaultdict(int)
         self.tokens = TokenStats()
         self.cost_usd = 0.0
+        # 缓存命中率（§8.3）：{name: [hits, misses]}
+        self.cache_stats: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+
+    def record_cache(self, name: str, *, hit: bool) -> None:
+        with self._lock:
+            self.cache_stats[name][0 if hit else 1] += 1
 
     def record_request(
         self,
@@ -50,6 +56,14 @@ class MetricsRegistry:
                 if self.latency_count
                 else 0
             )
+            cache_rates = {}
+            for name, (hits, misses) in self.cache_stats.items():
+                total = hits + misses
+                cache_rates[name] = {
+                    "hits": hits,
+                    "misses": misses,
+                    "hitRate": round(hits / total, 4) if total else 0.0,
+                }
             return {
                 "requests": self.requests,
                 "errors": self.errors,
@@ -57,6 +71,7 @@ class MetricsRegistry:
                 "providerCalls": dict(self.by_provider_calls),
                 "tokens": self.tokens.snapshot(),
                 "estimatedCostUsd": round(self.cost_usd, 6),
+                "cache": cache_rates,
             }
 
 

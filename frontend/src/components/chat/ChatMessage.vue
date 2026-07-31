@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CopyDocument, Delete, RefreshRight, Compass } from '@element-plus/icons-vue'
+import { CopyDocument, Delete, RefreshRight, Compass, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useStreamingMarkdown } from '@/composables/useStreamingMarkdown'
 import ToolCallCard from './ToolCallCard.vue'
@@ -162,6 +162,35 @@ async function copyContent() {
           <span class="placeholder-text">正在组织回答…</span>
         </div>
         <div v-else class="bubble-empty">（无内容）</div>
+      </div>
+
+      <div v-if="!isUser && message.sources?.length" class="message-citations">
+        <span class="citations-label">
+          <el-icon :size="13"><Document /></el-icon>
+          引用来源
+        </span>
+        <el-popover
+          v-for="src in message.sources"
+          :key="src.index"
+          placement="top"
+          :width="320"
+          trigger="click"
+          popper-class="citation-popover"
+        >
+          <template #reference>
+            <span class="citation-chip">[{{ src.index }}]</span>
+          </template>
+          <div class="citation-detail">
+            <div class="citation-head">
+              <span class="citation-file">{{ src.fileName || '未知文件' }}</span>
+              <el-tag v-if="src.kbName" size="small" effect="light">{{ src.kbName }}</el-tag>
+            </div>
+            <div v-if="typeof src.score === 'number'" class="citation-score">
+              匹配度 {{ src.score.toFixed(2) }}
+            </div>
+            <p class="citation-text">{{ src.text }}</p>
+          </div>
+        </el-popover>
       </div>
 
       <div v-if="showActions" class="message-actions">
@@ -484,5 +513,75 @@ async function copyContent() {
   margin: 0;
   flex: 1;
   font-size: 13px;
+}
+
+.message-citations {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.citations-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ao-text-secondary, #94a3b8);
+}
+
+.citation-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-primary, #4f46e5);
+  background: color-mix(in srgb, var(--theme-primary, #4f46e5) 12%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.citation-chip:hover {
+  background: color-mix(in srgb, var(--theme-primary, #4f46e5) 22%, transparent);
+}
+
+.citation-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.citation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.citation-file {
+  font-weight: 600;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.citation-score {
+  font-size: 12px;
+  color: var(--ao-text-secondary, #94a3b8);
+}
+
+.citation-text {
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--ao-text-primary, #e2e8f0);
 }
 </style>

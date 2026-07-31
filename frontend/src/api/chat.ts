@@ -2,7 +2,7 @@ import request from './request'
 import { TOKEN_STORAGE_KEY } from './request'
 import type { AvailableModel, ChatRegenerateRequest, ChatStreamRequest } from '@/types'
 
-export type SseEventType = 'token' | 'tool_start' | 'tool_end' | 'usage' | 'done' | 'error' | 'step' | 'title'
+export type SseEventType = 'token' | 'tool_start' | 'tool_end' | 'usage' | 'done' | 'error' | 'step' | 'title' | 'sources'
 
 export interface SseTokenPayload {
   conversationId: string
@@ -62,6 +62,21 @@ export interface SseTitlePayload {
   title: string
 }
 
+export interface SseSourceRef {
+  index: number
+  kbId?: string
+  kbName?: string
+  fileName?: string
+  score?: number
+  text?: string
+}
+
+export interface SseSourcesPayload {
+  conversationId: string
+  messageId: string
+  sources: SseSourceRef[]
+}
+
 export interface ChatStreamHandlers {
   onToken?: (payload: SseTokenPayload) => void
   onStep?: (payload: SseStepPayload) => void
@@ -69,6 +84,7 @@ export interface ChatStreamHandlers {
   onToolEnd?: (payload: SseToolEndPayload) => void
   onUsage?: (payload: SseUsagePayload) => void
   onTitle?: (payload: SseTitlePayload) => void
+  onSources?: (payload: SseSourcesPayload) => void
   onDone?: (payload: SseDonePayload) => void
   onError?: (payload: SseErrorPayload) => void
 }
@@ -135,6 +151,9 @@ function dispatchEvent(event: ParsedSseEvent, handlers: ChatStreamHandlers) {
       break
     case 'title':
       handlers.onTitle?.(payload as SseTitlePayload)
+      break
+    case 'sources':
+      handlers.onSources?.(payload as SseSourcesPayload)
       break
     case 'done':
       handlers.onDone?.(payload as SseDonePayload)

@@ -12,7 +12,6 @@ class ChatWorkflow(BaseWorkflow):
     description = "普通对话工作流"
 
     async def run(self, user_input: str, **kwargs: Any) -> AsyncIterator[SseEvent]:
-        from app.core.engine.engine import get_engine
-        engine = get_engine()
-        async for event in engine.stream_sse(user_input, **kwargs):
+        from app.runtime import get_runtime
+        async for event in get_runtime().stream_sse(user_input, **kwargs):
             yield event

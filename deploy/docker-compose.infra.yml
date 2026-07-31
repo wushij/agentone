@@ -13,9 +13,10 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ../sql/00_init_database.sql:/docker-entrypoint-initdb.d/00_init_database.sql:ro
-      - ../sql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ../sql/02_seed_data.sql:/docker-entrypoint-initdb.d/02_seed_data.sql:ro
+      - ../sql/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      - ../sql/migrations/03_extended_schema.sql:/docker-entrypoint-initdb.d/03_extended_schema.sql:ro
+      - ../sql/migrations/04_v11_schema.sql:/docker-entrypoint-initdb.d/04_v11_schema.sql:ro
+      - ../sql/migrations/05_user_avatar_mediumtext.sql:/docker-entrypoint-initdb.d/05_user_avatar_mediumtext.sql:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
@@ -37,6 +38,17 @@ services:
       timeout: 3s
       retries: 5
 
+  # 向量库（§8.1）：启用后后端设 QDRANT_URL=http://qdrant:6333
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: agentone-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
 volumes:
   mysql_data:
   redis_data:
+  qdrant_data:

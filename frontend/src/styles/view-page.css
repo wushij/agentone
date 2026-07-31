@@ -107,6 +107,10 @@
   margin: 0 !important;
 }
 
+.view-page .action-btn .el-icon {
+  color: inherit !important;
+}
+
 .view-page .action-btn--primary,
 .view-page .action-btn--edit {
   border: 1px solid color-mix(in srgb, var(--theme-primary) 35%, transparent) !important;

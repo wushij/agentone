@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { estimateMessageTokens, isEmptyNewConversation, nowIso, sortConversations, uid } from '@/stores/chat/helpers'
 import type { ConversationSummary } from '@/types'
 
+import { renderMarkdown } from '@/utils/markdown'
+
 describe('chat/helpers - 辅助算法与 Token 估算测试', () => {
+  it('renderMarkdown() 应将图片 Markdown 正确渲染为 img 标签', () => {
+    const input = '![壁纸.jpg](/api/v1/files/file_123/download) 请分析'
+    const html = renderMarkdown(input)
+    expect(html).toContain('<img src="/api/v1/files/file_123/download" alt="壁纸.jpg"')
+  })
   it('uid() 应按前缀生成带时间戳的唯一 ID', () => {
     const id1 = uid('conv')
     const id2 = uid('conv')

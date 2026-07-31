@@ -1,5 +1,5 @@
 import request from './request'
-import { TOKEN_STORAGE_KEY } from './request'
+import { refreshAccessTokenWithRetry, TOKEN_STORAGE_KEY } from './request'
 import type { AvailableModel, ChatRegenerateRequest, ChatStreamRequest } from '@/types'
 
 export type SseEventType = 'token' | 'tool_start' | 'tool_end' | 'usage' | 'done' | 'error' | 'step' | 'title' | 'sources' | 'artifact'
@@ -211,17 +211,28 @@ async function streamChatEndpoint(
   handlers: ChatStreamHandlers,
   signal?: AbortSignal
 ): Promise<void> {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
-  const response = await fetch(`${getApiBase()}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify(body),
-    signal
-  })
+  const doFetch = (tok: string | null) =>
+    fetch(`${getApiBase()}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...(tok ? { Authorization: `Bearer ${tok}` } : {})
+      },
+      body: JSON.stringify(body),
+      signal
+    })
+
+  let response = await doFetch(localStorage.getItem(TOKEN_STORAGE_KEY))
+  // 修复（§5.1）：SSE 直连 fetch 也联动静默刷新——401 时刷新一次并重试，避免长会话 token 过期直接报错
+  if (response.status === 401) {
+    try {
+      const fresh = await refreshAccessTokenWithRetry()
+      response = await doFetch(fresh)
+    } catch {
+      /* 刷新失败：落到下方统一错误处理 */
+    }
+  }
 
   if (!response.ok) {
     let message = `请求失败 (${response.status})`

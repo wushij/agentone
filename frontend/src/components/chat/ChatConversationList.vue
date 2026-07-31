@@ -20,6 +20,16 @@ const {
   handleDelete,
   formatSessionTime
 } = useChatView()
+
+function formatDisplayTitle(title?: string): string {
+  if (!title) return '未命名对话'
+  const clean = title
+    .replace(/!\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/[\*\`\_]+/g, '')
+    .trim()
+  return clean || '未命名对话'
+}
 </script>
 
 <template>
@@ -79,7 +89,7 @@ const {
             </el-checkbox-group>
             <div class="conv-item-main">
               <span class="conv-title">
-                {{ conv.title }}
+                {{ formatDisplayTitle(conv.title) }}
                 <span v-if="chatStore.isConversationStreaming(conv.id)" class="conv-streaming-badge">生成中</span>
               </span>
               <span class="conv-sub">{{ formatSessionTime(conv.updatedAt) }}</span>

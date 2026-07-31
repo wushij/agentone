@@ -163,3 +163,50 @@ def get_cost_manager() -> CostManager:
     if _cost_manager is None:
         _cost_manager = CostManager()
     return _cost_manager
+
+
+def _resolve_provider_model(model_id: str | None) -> tuple[str, str]:
+    """从 model_id 解析 (provider, model_name)；解析失败回退 mock。"""
+    try:
+        from app.db.session import SessionLocal
+        from app.services.llm.model_service import ModelService
+
+        db = SessionLocal()
+        try:
+            cfg = ModelService(db).resolve_model(model_id)
+            if cfg:
+                return cfg.provider, cfg.model_name
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return "mock", model_id or ""
+
+
+async def record_cost(
+    *,
+    user_id: str | int | None = None,
+    conversation_id: str = "",
+    trace_id: str = "",
+    agent_role: str = "",
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    model_id: str | None = None,
+) -> float:
+    """主链路统一成本落库入口（§9.2）：从 model_id 解析 provider 后记一条 cost_records。"""
+    provider, model_name = _resolve_provider_model(model_id)
+    uid: int | None
+    try:
+        uid = int(user_id) if user_id not in (None, "") else None
+    except (TypeError, ValueError):
+        uid = None
+    return await get_cost_manager().record(
+        provider=provider,
+        model=model_name,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        user_id=uid,
+        conversation_id=conversation_id or None,
+        trace_id=trace_id or None,
+        agent_role=agent_role,
+    )

@@ -155,15 +155,26 @@ export function useChatViewProvider(): ChatViewContext {
   const kbs = ref<KnowledgeItem[]>([])
   const selectedKbIds = ref<string[]>(loadStoredKbIds())
   const kbRetrieveOnly = ref(localStorage.getItem(KB_MODE_KEY) === 'retrieve')
-  const attachedFile = ref<{ id: string; name: string } | null>(null)
+  const attachedFile = ref<{ id: string; name: string; url?: string; isImage?: boolean } | null>(null)
   const uploadingFile = ref(false)
 
   async function handleUploadChatFile(file: File) {
     uploadingFile.value = true
     try {
       const res = await uploadFile(file)
-      attachedFile.value = { id: res.id, name: res.name }
-      ElMessage.success('文件上传并关联成功')
+      const fileName = res.name || file.name || 'unnamed'
+      const ext = fileName.toLowerCase()
+      const isImg = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.svg'].some((e) => ext.endsWith(e))
+      const token = userStore.token || localStorage.getItem('token') || ''
+      const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : ''
+      const downloadUrl = `/api/v1/files/${res.id}/download${tokenQuery}`
+      attachedFile.value = {
+        id: res.id,
+        name: fileName,
+        url: downloadUrl,
+        isImage: isImg
+      }
+      ElMessage.success(isImg ? '图片已上传关联' : '文件已上传关联')
     } catch {
       ElMessage.error('文件上传失败')
     } finally {
@@ -368,9 +379,17 @@ export function useChatViewProvider(): ChatViewContext {
     }
 
     if (!text && attachedFile.value) {
-      text = `请帮我读取并分析刚才上传的文件「${attachedFile.value.name}」。`
+      if (attachedFile.value.isImage && attachedFile.value.url) {
+        text = `![${attachedFile.value.name}](${attachedFile.value.url})`
+      } else {
+        text = `请帮我读取并分析刚才上传的文件「${attachedFile.value.name}」。`
+      }
     } else if (attachedFile.value) {
-      text = `[已上传关联文件: ${attachedFile.value.name}]\n\n${text}`
+      if (attachedFile.value.isImage && attachedFile.value.url) {
+        text = `![${attachedFile.value.name}](${attachedFile.value.url})\n\n${text}`
+      } else {
+        text = `[已上传关联文件: ${attachedFile.value.name}]\n\n${text}`
+      }
     }
     inputText.value = ''
     attachedFile.value = null

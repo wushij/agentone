@@ -26,7 +26,8 @@ class RagCache:
 
     async def make_key(self, *, kb_ids: list[str], query: str) -> str:
         versions = await self._versions(kb_ids)
-        raw = f"{versions}|{query.strip()}"
+        # ranker 版本前缀：排序算法与阈值过滤变更时自动失效旧缓存（当前 v3=2-gram 词组分词 + 精准得分阈值）
+        raw = f"rank:v3|{versions}|{query.strip()}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     async def get(self, key: str) -> list[dict[str, Any]] | None:
@@ -39,10 +40,6 @@ class RagCache:
         await self._cache.set(key, chunks, ttl=ttl)
 
     async def bump_version(self, kb_id: str) -> None:
-        """文档增删改时调用：使该库相关的 L1 缓存 key 全部失效。"""
-        current = await self._ver.get(kb_id)
-        try:
-            nxt = int(current or 0) + 1
-        except Exception:
-            nxt = 1
-        await self._ver.set(kb_id, nxt, ttl=0)
+        """文档增删改时调用：使该库相关的 L1 缓存 key 全部失效。
+        修复（§4.9）：用原子 INCR 递增版本号，避免“读-加一-写”并发丢递增。"""
+        await self._ver.incr(kb_id)

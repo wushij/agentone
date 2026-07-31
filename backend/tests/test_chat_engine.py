@@ -49,10 +49,37 @@ async def test_stream_sse_encoded():
         "测试编码格式",
         conversation_id="test_engine_conv_002",
         enable_tools=False,
+        model_id="mock-model",
     ):
         chunks.append(chunk)
 
     assert len(chunks) > 0
-    full_text = "".join(chunks)
-    assert "event:" in full_text
-    assert "data:" in full_text
+    full_str = "".join(chunks)
+    assert "event: " in full_str
+    assert "data: " in full_str
+
+
+@pytest.mark.asyncio
+async def test_mock_chat_rag_reply():
+    """验证 MockChatModel 能正确提取 SystemMessage 中的【知识库参考资料】并回答"""
+    from langchain_core.messages import HumanMessage, SystemMessage
+    from app.llm.mock import MockChatModel
+
+    model = MockChatModel()
+    messages = [
+        SystemMessage(
+            content=(
+                "你是一个助手。\n\n"
+                "内置 4 个工具。 CalculatorTool (计算器) 安全数学表达式计算...\n\n"
+                "【知识库参考资料】\n"
+                "#1 01-系统概述与部署运维.md\n"
+                "问 AgentOne 是什么系统？技术架构是什么？\n"
+                "答 AgentOne 是企业级 AI 智能体编辑与工作流监控平台（多代理协同工作流平台）。前端采用 Vue 3 + Vite..."
+            )
+        ),
+        HumanMessage(content="AgentOne 是什么系统？技术架构是什么？"),
+    ]
+    res = await model.ainvoke(messages)
+    assert res.content
+    assert "系统定位" in res.content or "AgentOne" in res.content
+    assert "运算已完成" not in res.content  # 绝不能误判为计算工具ext

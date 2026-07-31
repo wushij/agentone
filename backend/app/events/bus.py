@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.events.message import EventMessage
+from app.utils.logger import logger
 
 HandlerFunc = Callable[[EventMessage], Awaitable[None]]
 
@@ -36,7 +37,11 @@ class EventBus:
         event_type = str(event.event_type)
         handlers = self._listeners.get(event_type, [])
         if handlers:
-            await asyncio.gather(*(h(event) for h in handlers), return_exceptions=True)
+            # 修复（§4.7）：不再丢弃 gather 结果，逐个记录 handler 异常便于排障。
+            results = await asyncio.gather(*(h(event) for h in handlers), return_exceptions=True)
+            for r in results:
+                if isinstance(r, Exception):
+                    logger.warning(f"[EventBus] handler 处理 {event_type} 异常: {r}")
         if self._mirror_redis:
             await self._mirror_to_stream(event_type, event)
 
@@ -56,9 +61,9 @@ class EventBus:
                 maxlen=_STREAM_MAXLEN,
                 approximate=True,
             )
-        except Exception:
-            # Redis 不可用：降级仅进程内，下次自动重试
-            pass
+        except Exception as exc:
+            # Redis 不可用：降级仅进程内，下次自动重试（修复§4.7：补 debug 日志便于排障）
+            logger.debug(f"[EventBus] 镜像至 Redis Stream 失败（已降级仅进程内）: {exc}")
 
 
 event_bus = EventBus()

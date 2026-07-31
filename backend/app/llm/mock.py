@@ -109,21 +109,36 @@ def _format_answer_markdown(answer: str) -> str:
 
 
 def _extract_rag_answer(context: str) -> str:
-    match = re.search(r"答[:：]\s*([\s\S]+?)(?=\n\n【资料|\n\n请基于|$)", context)
-    if match:
+    if not context:
+        return ""
+    # 1. 优先提取显式的 "答：" 后续回答文本
+    match = re.search(r"答[:：]\s*([\s\S]+?)(?=\n\n【|\n\n请基于|\n\n问[:：]|$)", context)
+    if match and len(match.group(1).strip()) > 5:
         return match.group(1).strip()
-    match = re.search(r"【资料 \d+】\s*([\s\S]+?)(?=\n\n【资料|\n\n请基于|$)", context)
+
+    # 2. 提取【资料 X】格式的文本块
+    match = re.search(r"【资料 \d+[^】]*】\s*([\s\S]+?)(?=\n\n【资料|\n\n请基于|\n\n【|$)", context)
     if match:
         block = match.group(1).strip()
         qa = re.search(r"答[:：]\s*([\s\S]+)$", block)
-        return (qa.group(1) if qa else block).strip()
-    match = re.search(r"【知识库参考资料】\s*([\s\S]+?)(?=\n\n【调用的工具】|$)", context)
+        if qa:
+            return qa.group(1).strip()
+        clean_block = re.sub(r"^[^\n]+\.md\s*", "", block).strip()
+        if clean_block:
+            return clean_block
+
+    # 3. 提取【知识库参考资料】后的全量文案
+    match = re.search(r"【知识库参考资料】\s*([\s\S]+?)(?=\n\n【调用的工具】|\n\n【记忆|$)", context)
     if match:
         block = match.group(1).strip()
         if block.startswith("（无）"):
             return ""
         qa = re.search(r"答[:：]\s*([\s\S]+)$", block)
-        return (qa.group(1) if qa else block).strip()
+        if qa:
+            return qa.group(1).strip()
+        clean_block = re.sub(r"^[^\n]+\.md\s*", "", block).strip()
+        return clean_block or block
+
     return ""
 
 
@@ -177,51 +192,65 @@ class MockChatModel(BaseChatModel):
                 await asyncio.sleep(0.006)
 
     def _build_reply(self, messages: list[BaseMessage]) -> str:
+        # 1. 收集全量消息文本（包含 SystemMessage 中的【知识库参考资料】）
+        full_text = "\n\n".join(str(msg.content) for msg in messages)
+
+        # 2. 提取用户最新的真实提问 (HumanMessage)
         user_text = ""
         for msg in reversed(messages):
             if msg.type == "human":
-                user_text = str(msg.content)
+                user_text = str(msg.content).strip()
                 break
-        if not user_text:
-            return "你好，我是 AgentOne 助手（Mock 演示模式）。"
 
-        if "计算" in user_text or any(op in user_text for op in "+-×÷*/"):
+        # 3.5 用户发送了图片或图片问答
+        if any(k in user_text.lower() for k in ("图片", ".jpg", ".png", ".webp", ".jpeg", ".gif", "![")):
+            img_match = re.search(r"!\[(.*?)\]\((.*?)\)", user_text)
+            img_name = img_match.group(1) if img_match else "关联图片"
+            return (
+                f"📌 **图片处理**\n\n已成功接收并校验您上传的图片「{img_name}」。\n\n"
+                "💡 **分析说明**\n\n图片文件已持久化存储至系统文件中心，并在当前对话中成功关联呈现。在 Mock 演示模式下已完成图像链路校验；配置具备视觉能力的模型（如 GPT-4o / Qwen-VL）后即可进行完整的图像内容深度解析。"
+            )
+
+        # 3. 如果包含知识库参考资料，优先提取 RAG 内容作答
+        if "【知识库参考资料】" in full_text or "【资料 " in full_text or "知识库参考:" in full_text:
+            answer = _extract_rag_answer(full_text)
+            if answer:
+                return _format_answer_markdown(answer)
+
+        # 4. 判别数学计算需求：必须是用户提问中显式含有数值和运算指令
+        # 严禁因 system_prompt 中包含“内置计算器工具(CalculatorTool)”而误判
+        math_symbols = ("+", "-", "*", "/", "×", "÷")
+        has_math_op = any(op in user_text for op in math_symbols) or ("算一下" in user_text or "计算" in user_text)
+        is_real_math_question = (
+            has_math_op
+            and any(c.isdigit() for c in user_text)
+            and not any(k in user_text for k in ("Agent", "系统", "架构", "知识库", "技术"))
+        )
+
+        if is_real_math_question:
             return (
                 "📌 **结果**\n\n运算已完成，请查看上方工具输出。\n\n"
                 "💡 **说明**\n\nMock 演示模式；配置真实 API Key 后可接入 DeepSeek 等模型。"
             )
 
-        if "知识库参考:" in user_text or "【知识库参考资料】" in user_text:
-            answer = _extract_rag_answer(user_text)
-            if answer:
-                return _format_answer_markdown(answer)
-
-        question = ""
-        q_match = re.search(r"【当前用户问题】\s*\n(.+?)(?:\n\n|$)", user_text)
-        if not q_match:
-            q_match = re.search(r"用户问题:\s*(.+?)(?:\n|$)", user_text)
-        if q_match:
-            question = q_match.group(1).strip()
-
-        if question:
-            return (
-                f"📌 **说明**\n\n关于「{question}」，当前为 Mock 演示。\n\n"
-                "💡 **提示**\n\n请挂载知识库并使用 RAG 模式；配置 DeepSeek API Key 后可获得真实排版回复。"
-            )
-
-        if "AgentOne" in user_text or "架构" in user_text or "系统" in user_text:
+        # 5. 用户提问包含 AgentOne 系统架构类问题
+        if any(k in user_text for k in ("AgentOne", "架构", "系统", "技术")):
             return (
                 "📌 **系统定位**\n\n"
                 "AgentOne 是企业级 AI 智能体平台，提供对话、知识库 RAG、工具调用与工作流编排。\n\n"
                 "⚙️ **技术架构**\n\n"
-                "- **前端**：Vue 3 + Element Plus\n"
-                "- **后端**：FastAPI + LangGraph\n"
-                "- **数据存储**：SQLite / 可扩展向量库\n"
-                "- **AI 能力**：多模型接入、RAG、Tool 调用\n\n"
-                "💡 **说明**\n\n当前为 Mock 演示；配置真实模型后可获得更完整回答。"
+                "- **前端**：Vue 3 + Vite + TypeScript + Pinia + Element Plus\n"
+                "- **后端**：FastAPI + SQLAlchemy + LangGraph + LangChain\n"
+                "- **数据存储**：MySQL 8 (主存储) 和 Redis 7 (缓存、分布式锁)\n"
+                "- **AI 能力**：多模型协同、知识库 RAG 检索、工具链启停\n\n"
+                "💡 **说明**\n\n当前为 Mock 演示；配置真实 DeepSeek API Key 后可获得更完整回答。"
             )
 
-        return (
-            f"📌 **说明**\n\n你好，收到你的消息。\n\n"
-            "💡 **提示**\n\n当前为 Mock 演示；配置真实模型后可获得完整回答。"
-        )
+        # 6. 通用兜底
+        if user_text:
+            return (
+                f"📌 **说明**\n\n关于「{user_text}」，当前为 Mock 演示模式。\n\n"
+                "💡 **提示**\n\n配置真实 API Key 后可获得更丰富、准确的智能生成体验。"
+            )
+
+        return "你好，我是 AgentOne 助手（Mock 演示模式）。"

@@ -43,3 +43,19 @@ class TestEmbedder:
         embedder = Embedder()
         result = await embedder.embed_query("test")
         assert len(result) == 1536
+
+
+class TestBM25:
+    def test_chinese_word_bm25_ranking(self):
+        from app.services.rag.rag_service import bm25_scores
+        query = "AgentOne 是什么系统？技术架构是什么？"
+        docs = [
+            "什么情况下会收到系统通知？系统通知通过 WebSocket 实时推送...",
+            "AgentOne 是企业级 AI 智能体平台。前端采用 Vue 3，后端采用 FastAPI + LangGraph，技术架构完善...",
+            "Prompt 模板的内容是什么格式？Markdown 格式...",
+        ]
+        scores = bm25_scores(query, docs)
+        assert len(scores) == 3
+        # doc[1] (AgentOne 技术架构) 应该得分远高于 doc[0] (系统通知) 和 doc[2] (Prompt 格式)
+        assert scores[1] > scores[0]
+        assert scores[1] > scores[2]

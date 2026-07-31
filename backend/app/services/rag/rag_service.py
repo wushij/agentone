@@ -6,11 +6,13 @@ import json
 import math
 import os
 import re
+import asyncio
 from pathlib import Path
 
 import httpx
 
 from app.storage import data_root, uploads_dir, vector_store_json
+from app.utils.logger import logger
 
 # 从拆分的子模块导入子工具函数
 from app.services.rag.chunker import SEGMENT_DELIMITERS, split_text, split_text_segments
@@ -100,13 +102,35 @@ def cosine_similarity(v1: list[float], v2: list[float]) -> float:
 
 
 def _tokenize_bm25(text: str) -> list[str]:
+    """改进版中文 BM25 分词器：提取英文/数字词元 + 中文 2-gram/3-gram 词组与实体，避免单字泛化混淆。"""
     norm = _normalize_query_text(text)
-    tokens = re.findall(r"[\u4e00-\u9fff]|[a-zA-Z0-9\-]+", norm)
-    return [t for t in tokens if t not in _KEYWORD_STOPWORDS]
+    tokens: list[str] = []
+
+    # 1. 提取英文/数字/连字符词元
+    en_tokens = re.findall(r"[a-zA-Z0-9\-]+", norm)
+    for t in en_tokens:
+        if len(t) >= 2 and t not in _KEYWORD_STOPWORDS:
+            tokens.append(t)
+
+    # 2. 提取连续中文词组段落并做 2-gram / 3-gram 及整词拆分
+    cn_segments = re.findall(r"[\u4e00-\u9fff]+", norm)
+    for seg in cn_segments:
+        if seg not in _KEYWORD_STOPWORDS and len(seg) >= 2:
+            tokens.append(seg)
+        for i in range(len(seg) - 1):
+            bi = seg[i : i + 2]
+            if bi not in _KEYWORD_STOPWORDS:
+                tokens.append(bi)
+        for i in range(len(seg) - 2):
+            tri = seg[i : i + 3]
+            if tri not in _KEYWORD_STOPWORDS:
+                tokens.append(tri)
+
+    return [t for t in dict.fromkeys(tokens)]
 
 
 def bm25_scores(query: str, docs: list[str], *, k1: float = 1.5, b: float = 0.75) -> list[float]:
-    """真 BM25 打分（中文按字 + 英文按词元）。"""
+    """真 BM25 打分（中文按 2-gram/3-gram 词组 + 英文按词元）。"""
     if not docs:
         return []
     q_tokens = [t for t in dict.fromkeys(_tokenize_bm25(query))]
@@ -144,6 +168,29 @@ def rrf_fuse(*rankings: list[int], k: int = 60) -> dict[int, float]:
         for rank, idx in enumerate(ranking):
             fused[idx] = fused.get(idx, 0.0) + 1.0 / (k + rank + 1)
     return fused
+
+
+def hybrid_blend(vec_scores: list[float], lex_scores: list[float], *, w_lex: float = 0.7) -> list[float]:
+    """分数加权混合（BM25 词法主导）：归一化后 w_lex*BM25 + (1-w_lex)*向量。
+
+    当 BM25 为 0（词法无任何匹配）时，大幅降低伪随机/噪声向量的得分权重，防止无关段落反超。
+    """
+    n = len(lex_scores)
+    if n == 0:
+        return []
+    max_lex = max(lex_scores) if lex_scores else 0.0
+    pos_vec = [max(0.0, v) for v in vec_scores] if vec_scores else [0.0] * n
+    max_vec = max(pos_vec) if pos_vec else 0.0
+    blended: list[float] = []
+    for i in range(n):
+        nl = (lex_scores[i] / max_lex) if max_lex > 0 else 0.0
+        nv = (pos_vec[i] / max_vec) if max_vec > 0 else 0.0
+        if max_lex > 0 and lex_scores[i] == 0:
+            final_score = nv * 0.15
+        else:
+            final_score = w_lex * nl + (1 - w_lex) * nv
+        blended.append(round(final_score, 4))
+    return blended
 
 
 async def _qdrant_retrieve(
@@ -187,17 +234,14 @@ async def _qdrant_retrieve(
     texts = [c["text"] for c in candidates]
     vec_scores = [c["score"] for c in candidates]
     lex_scores = bm25_scores(query, texts)
-    vec_rank = sorted(range(len(candidates)), key=lambda i: vec_scores[i], reverse=True)
-    lex_rank = sorted(range(len(candidates)), key=lambda i: lex_scores[i], reverse=True)
-    fused = rrf_fuse(vec_rank, lex_rank)
-    max_fused = max(fused.values()) if fused else 1.0
+    blended = hybrid_blend(vec_scores, lex_scores)
 
     merged: list[dict] = []
     for i, c in enumerate(candidates):
         fid = c.get("fileId", "")
         merged.append({
             "text": c["text"],
-            "score": round(fused.get(i, 0.0) / (max_fused or 1.0), 4),
+            "score": round(blended[i], 4),
             "vectorScore": round(vec_scores[i], 4),
             "bm25Score": round(lex_scores[i], 4),
             "fileName": name_map.get(fid) or c.get("fileName", ""),
@@ -208,12 +252,13 @@ async def _qdrant_retrieve(
 
     try:
         from app.knowledge.reranker import get_reranker
-
+    
         cand = merged[: max(top_k * 3, top_k)]
         if len(cand) > 1:
-            return get_reranker().rerank(query, cand, top_k=top_k)
-    except Exception:
-        pass
+            # 修复（§4.6）：cross-encoder 的 predict 是 CPU 同步，放到线程避免阻塞事件循环
+            return await asyncio.to_thread(get_reranker().rerank, query, cand, top_k)
+    except Exception as exc:
+        logger.warning(f"[RAG] 重排失败（已降级为融合分排序）: {exc}")
     return merged[:top_k]
 
 
@@ -340,13 +385,12 @@ class RagService:
         if mode == "hybrid":
             vec_scores = [cosine_similarity(query_vector, c["vector"]) for c in kb_chunks]
             lex_scores = bm25_scores(query, texts)
-            vec_rank = sorted(range(len(kb_chunks)), key=lambda i: vec_scores[i], reverse=True)
-            lex_rank = sorted(range(len(kb_chunks)), key=lambda i: lex_scores[i], reverse=True)
-            fused = rrf_fuse(vec_rank, lex_rank)
-            max_fused = max(fused.values()) if fused else 1.0
+            blended = hybrid_blend(vec_scores, lex_scores)
             for i, c in enumerate(kb_chunks):
-                norm = fused.get(i, 0.0) / (max_fused or 1.0)
-                if vec_scores[i] < score_threshold and lex_scores[i] <= 0:
+                norm = blended[i]
+                if norm < score_threshold or norm < 0.40:
+                    continue
+                if max(lex_scores) > 0 and lex_scores[i] <= 0 and vec_scores[i] < 0.85:
                     continue
                 fid = c.get("fileId", "")
                 results.append({
@@ -359,12 +403,16 @@ class RagService:
                     "index": c.get("index", 1),
                 })
             results.sort(key=lambda x: x["score"], reverse=True)
+            if results:
+                top_score = results[0]["score"]
+                cutoff = max(score_threshold, top_score * 0.6)
+                results = [r for r in results if r["score"] >= cutoff]
         else:
             for c in kb_chunks:
                 vector_score = cosine_similarity(query_vector, c["vector"])
                 lexical_score = keyword_score(query, c["text"])
                 score = _blend_retrieval_score(vector_score, lexical_score, retrieval_mode)
-                if score >= score_threshold:
+                if score >= score_threshold and score >= 0.40:
                     fid = c.get("fileId", "")
                     results.append({
                         "text": c["text"],
@@ -374,16 +422,21 @@ class RagService:
                         "index": c.get("index", 1),
                     })
             results.sort(key=lambda x: x["score"], reverse=True)
+            if results:
+                top_score = results[0]["score"]
+                cutoff = max(score_threshold, top_score * 0.6)
+                results = [r for r in results if r["score"] >= cutoff]
 
         try:
             from app.knowledge.reranker import get_reranker
 
             candidates = results[: max(top_k * 3, top_k)]
             if len(candidates) > 1:
-                results = get_reranker().rerank(query, candidates, top_k=top_k)
+                # 修复（§4.6）：CPU 同步 predict 放线程，不阻塞事件循环
+                results = await asyncio.to_thread(get_reranker().rerank, query, candidates, top_k)
                 return results
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"[RAG] 重排失败（已降级）: {exc}")
         return results[:top_k]
 
     @staticmethod

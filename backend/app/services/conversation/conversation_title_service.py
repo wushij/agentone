@@ -15,10 +15,20 @@ _TITLE_PROMPT = (
 )
 
 
+def _clean_title(text: str) -> str:
+    if not text:
+        return "新对话"
+    text = re.sub(r"!\[(.*?)\]\(.*?\)", r"\1", text)
+    text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
+    text = re.sub(r"[\*\`\_]+", "", text)
+    return " ".join(text.strip().split())
+
+
 def fallback_conversation_title(user_message: str) -> str:
     text = " ".join(user_message.strip().split())
     if not text:
         return "新对话"
+    text = _clean_title(text)
     if text.startswith("http://") or text.startswith("https://"):
         try:
             host = urlparse(text.split()[0]).netloc
@@ -33,6 +43,7 @@ def fallback_conversation_title(user_message: str) -> str:
 def normalize_generated_title(raw: str, user_message: str) -> str:
     title = raw.strip().strip('"\'""''「」《》[]')
     title = re.sub(r"\s+", " ", title.split("\n")[0].strip())
+    title = _clean_title(title)
     if not title or len(title) > 40:
         return fallback_conversation_title(user_message)
     return title[:32]

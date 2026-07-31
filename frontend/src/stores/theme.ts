@@ -31,6 +31,19 @@ export const useThemeStore = defineStore('theme', () => {
     applyColorMode(colorMode.value)
   }
 
+  // 修复（§5.2）：运行时按 colorMode 动态注册/注销系统主题监听，切到 system 才跟随、切走即移除
+  let mql: MediaQueryList | null = null
+  function syncSystemListener() {
+    const needed = colorMode.value === 'system'
+    if (needed && !mql) {
+      mql = window.matchMedia('(prefers-color-scheme: dark)')
+      mql.addEventListener('change', applyMode)
+    } else if (!needed && mql) {
+      mql.removeEventListener('change', applyMode)
+      mql = null
+    }
+  }
+
   function setTheme(id: ThemePresetId) {
     themePreset.value = id
     applyThemePreset(id)
@@ -55,6 +68,7 @@ export const useThemeStore = defineStore('theme', () => {
     colorMode.value = next
     saveColorMode(next)
     applyMode()
+    syncSystemListener()
   }
 
   function toggleColorMode() {
@@ -64,9 +78,7 @@ export const useThemeStore = defineStore('theme', () => {
   function init() {
     initThemeFromStorage()
     applyMode()
-    if (colorMode.value === 'system') {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyMode)
-    }
+    syncSystemListener()
   }
 
   function applyFromSettings(data: { theme?: string; colorMode?: string }) {

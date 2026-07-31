@@ -16,6 +16,8 @@ def load_document(file_path: str | Path) -> list[dict[str, Any]]:
     elif suffix in (".md", ".markdown"):
         from app.knowledge.loaders.markdown import MarkdownLoader
         return MarkdownLoader().load(path)
+    elif suffix in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"):
+        return [{"text": f"[图片文件: {path.name}]", "metadata": {"source": str(path)}}]
     else:
         from app.knowledge.loaders.text import TextLoader
         return TextLoader().load(path)

@@ -89,7 +89,8 @@ watch(
   <footer class="chat-input-area">
     <!-- Attached file preview chip -->
     <div v-if="attachedFile" class="attached-file-chip">
-      <el-icon class="file-icon"><Document /></el-icon>
+      <img v-if="attachedFile.isImage && attachedFile.url" :src="attachedFile.url" class="chip-image-thumb" />
+      <el-icon v-else class="file-icon"><Document /></el-icon>
       <span class="file-name">{{ attachedFile.name }}</span>
       <el-button class="remove-btn" type="text" :icon="Close" circle @click="clearAttachment" />
     </div>
@@ -101,7 +102,7 @@ watch(
         <button
           type="button"
           class="composer-btn composer-btn--attach"
-          title="上传关联文件 (PDF, Word, TXT, MD)"
+          title="上传关联文件与图片 (PDF, Word, TXT, MD, PNG, JPG 等)"
           :disabled="uploadingFile"
           @click="triggerFileSelect"
         >
@@ -112,7 +113,7 @@ watch(
           ref="fileInputRef"
           type="file"
           style="display: none"
-          accept=".pdf,.docx,.doc,.txt,.md"
+          accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls"
           @change="onFileChange"
         />
 
@@ -174,7 +175,7 @@ watch(
             <button
               type="button"
               class="composer-btn composer-btn--attach"
-              title="上传关联文件 (PDF, Word, TXT, MD)"
+              title="上传关联文件与图片 (PDF, Word, TXT, MD, PNG, JPG 等)"
               :disabled="uploadingFile"
               @click="triggerFileSelect"
             >
@@ -185,7 +186,7 @@ watch(
               ref="fileInputRef"
               type="file"
               style="display: none"
-              accept=".pdf,.docx,.doc,.txt,.md"
+              accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls"
               @change="onFileChange"
             />
           </div>
@@ -474,6 +475,15 @@ watch(
 .action-btn--stop:active {
   transform: translateY(0) scale(0.96);
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
+}
+
+.chip-image-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--ao-panel-border);
 }
 
 .input-hint {

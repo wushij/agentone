@@ -80,7 +80,20 @@ function unwrapUrlInlineCode(content: string): string {
   })
 }
 
+function appendTokenToApiUrls(content: string): string {
+  try {
+    const token = localStorage.getItem('token') || ''
+    if (!token) return content
+    return content.replace(
+      /(\/api\/v1\/files\/[^\/\s\)\"\']+\/download)(?!\?token=)/gi,
+      `$1?token=${encodeURIComponent(token)}`
+    )
+  } catch {
+    return content
+  }
+}
+
 export function renderMarkdown(content: string): string {
   if (!content.trim()) return ''
-  return md.render(unwrapUrlInlineCode(content))
+  return md.render(appendTokenToApiUrls(unwrapUrlInlineCode(content)))
 }

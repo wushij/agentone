@@ -43,7 +43,7 @@ def _thinking_directive(state: dict[str, Any]) -> str:
     """扩展思考档位（§6.1）→ 注入到 system 提示的推理指令，对任意 provider 都生效。"""
     level = str((state.get("metadata") or {}).get("thinking_level") or "standard")
     if level == "fast":
-        return "【快速模式】直接给出简洁、准确的结论，省略推理过程与冗余展开，优先响应效率。"
+        return "【快速模式】直接给出简洁、准确的结论，减少推理铺垫；但仍保持 emoji 分节与 Markdown 排版。"
     if level == "extended":
         return (
             "【深度思考模式】在给出最终答案前，先系统性地分步推理：拆解问题、"
@@ -182,7 +182,7 @@ class ContextBuilder:
         parts.append(f"【调用的工具】\n{tool_name or '（无）'}")
         parts.append(f"【工具结果】\n{tool_block.content or '（无）'}")
         parts.append(f"【审核结果】\n{review or '（无）'}")
-        parts.append(f"请按人设 §4 排版规则输出最终回答。{kb_instruction}")
+        parts.append(f"【排版要求】请用 📌 / ⚙️ / 📋 / 💡 等 emoji 分节标题 + Markdown 列表/表格，输出结构清晰、精美易读的最终回答。{kb_instruction}")
         context = "\n\n".join(parts)
 
         # 历史消息滚动窗口

@@ -5,6 +5,8 @@
 export enum ProviderEnum {
   OPENAI = 'openai',
   DEEPSEEK = 'deepseek',
+  QWEN = 'qwen',
   GEMINI = 'gemini',
   OLLAMA = 'ollama',
+  MOCK = 'mock',
 }

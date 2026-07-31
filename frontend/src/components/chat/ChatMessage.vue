@@ -27,6 +27,11 @@ const showThinking = computed(
   () => (props.message.steps?.length ?? 0) > 0 && (props.message.streaming || !props.message.content)
 )
 const thinkingCompact = computed(() => Boolean(props.message.content))
+const hasImage = computed(() => {
+  const c = (props.message.content || '').trim()
+  if (!c) return false
+  return /!\[.*?\]\(.*?\)/.test(c) || /<img\s+[^>]*>/i.test(c)
+})
 
 const { html } = useStreamingMarkdown(
   computed(() => props.message.content),
@@ -123,8 +128,9 @@ async function copyContent() {
         :compact="thinkingCompact"
       />
 
-      <div v-if="isUser" class="bubble bubble--user">
-        {{ message.content }}
+      <div v-if="isUser" class="bubble bubble--user" :class="{ 'bubble--has-image': hasImage }">
+        <div v-if="html" class="chat-markdown chat-markdown--user" v-html="html" />
+        <div v-else>{{ message.content }}</div>
       </div>
 
       <div v-else class="bubble bubble--ai" :class="{ 'bubble--retrieve': !!directRetrieval }">
@@ -320,5 +326,111 @@ async function copyContent() {
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+}
+
+:deep(.bubble img),
+:deep(.chat-markdown img),
+.bubble img {
+  max-width: min(480px, 100%);
+  max-height: 420px;
+  width: auto;
+  height: auto;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  margin: 0;
+  display: block;
+  cursor: pointer;
+  transition: box-shadow 0.25s ease, opacity 0.25s ease;
+}
+
+:deep(.chat-markdown--user),
+.chat-markdown--user {
+  color: #ffffff;
+}
+
+:deep(.chat-markdown--user p),
+.chat-markdown--user p {
+  color: #ffffff;
+  margin: 4px 0;
+}
+
+:deep(.chat-markdown--user p:first-child),
+.chat-markdown--user p:first-child {
+  margin-top: 0;
+}
+
+:deep(.chat-markdown--user p:last-child),
+.chat-markdown--user p:last-child {
+  margin-bottom: 0;
+}
+
+:deep(.chat-markdown--user img),
+.chat-markdown--user img {
+  max-width: min(460px, 100%);
+  max-height: 380px;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16);
+  margin: 0;
+  display: block;
+}
+
+.bubble--has-image {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  width: fit-content !important;
+  max-width: min(480px, 100%) !important;
+}
+
+:deep(.bubble--has-image .chat-markdown--user),
+.bubble--has-image .chat-markdown--user {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+:deep(.bubble--has-image .chat-markdown--user p),
+.bubble--has-image .chat-markdown--user p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* 图片下方的独立提问文字渲染为精致的紫色胶囊气泡 */
+:deep(.bubble--has-image .chat-markdown--user p:not(:has(img))),
+.bubble--has-image .chat-markdown--user p:not(:has(img)) {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%);
+  color: #ffffff !important;
+  padding: 10px 16px;
+  border-radius: 16px;
+  border-top-right-radius: 4px;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.25);
+  margin-top: 2px;
+}
+
+:deep(.bubble--has-image .chat-markdown--user img),
+:deep(.bubble--has-image img),
+.bubble--has-image img {
+  max-width: min(460px, 100%);
+  max-height: 380px;
+  width: auto;
+  height: auto;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.16) !important;
+  margin: 0;
+  display: block;
+  border: none !important;
+}
+
+:deep(.bubble img:hover),
+.bubble img:hover {
+  box-shadow: 0 10px 32px rgba(15, 23, 42, 0.24);
+  opacity: 0.97;
 }
 </style>

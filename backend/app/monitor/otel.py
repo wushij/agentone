@@ -16,12 +16,12 @@ class OtelExporter:
             self._enabled = True
 
     def record_span(self, name: str, attributes: dict[str, Any] | None = None) -> None:
-        """记录标准 OpenTelemetry Trace Span。"""
+        """记录标准 OpenTelemetry Trace Span（占位，未接入 SDK）。"""
         pass
 
-    def export_metrics() -> dict[str, Any]:
-        """导出 Prometheus 格式指标数据。"""
-        return {"status": "ok", "telemetry_enabled": False}
+    def export_metrics(self) -> dict[str, Any]:
+        """导出 Prometheus 格式指标数据（占位；修复§4.9：补回漏失的 self）。"""
+        return {"status": "ok", "telemetry_enabled": self._enabled}
 
 
 otel_exporter = OtelExporter()

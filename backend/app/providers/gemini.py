@@ -20,6 +20,7 @@ class GeminiProvider(BaseProvider):
             raise ImportError(
                 "langchain-google-genai is not installed. Run: pip install langchain-google-genai"
             ) from exc
+        kwargs.pop("streaming", None)  # ChatGoogleGenerativeAI 不接受 streaming 构造参
         return ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=api_key,

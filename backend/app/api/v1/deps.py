@@ -1,6 +1,6 @@
 """app/api/deps.py — API 层依赖注入"""
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session
@@ -46,13 +46,20 @@ async def _resolve_user_from_payload(
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    token: str | None = Query(default=None),
     db: Session = Depends(get_db),
     blacklist: TokenBlacklistService = Depends(),
 ) -> User:
-    if credentials is None or credentials.scheme.lower() != "bearer":
+    raw_token = None
+    if credentials and credentials.scheme.lower() == "bearer":
+        raw_token = credentials.credentials
+    elif token:
+        raw_token = token
+
+    if not raw_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录或 Token 无效")
 
-    payload = safe_decode_access_token(credentials.credentials)
+    payload = safe_decode_access_token(raw_token)
     return await _resolve_user_from_payload(payload, db, blacklist)
 
 

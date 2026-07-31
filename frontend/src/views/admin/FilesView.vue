@@ -83,7 +83,7 @@ onMounted(loadFiles)
 
 <template>
   <div class="view-page">
-    <PageHeader title="文件中心" subtitle="上传与管理知识库文件，支持上传 PDF / Word / TXT / Markdown 格式文档。" />
+    <PageHeader title="文件中心" subtitle="上传与管理知识库文件，支持文档及图片格式 (PDF / Word / TXT / MD / PNG / JPG / WEBP 等)。" />
 
     <el-card shadow="never" class="toolbar-card">
       <el-upload
@@ -93,7 +93,7 @@ onMounted(loadFiles)
         :http-request="handleUpload"
         :show-file-list="false"
         :disabled="uploading"
-        accept=".pdf,.docx,.doc,.txt,.md"
+        accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls"
         class="upload-zone"
       >
         <div class="upload-inner" v-loading="uploading">

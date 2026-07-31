@@ -10,9 +10,22 @@ from app.utils.logger import logger
 
 
 class RedisCache:
+    # 修复（§4.9）：降级内存缓存容量上限，避免 Redis 长时间不可用时无界增长。
+    _MEM_MAX = 2000
+
     def __init__(self, prefix: str = "agentone"):
         self.prefix = prefix
         self._mem: dict[str, tuple[Any, float | None]] = {}
+
+    def _mem_set(self, full: str, value: Any, expires: float | None) -> None:
+        # 超上限时先清过期项，仍超则淘汰最早插入的（FIFO 近似 LRU）。
+        if len(self._mem) >= self._MEM_MAX:
+            now = time.time()
+            for k in [k for k, (_v, e) in self._mem.items() if e is not None and now > e]:
+                self._mem.pop(k, None)
+            while len(self._mem) >= self._MEM_MAX:
+                self._mem.pop(next(iter(self._mem)), None)
+        self._mem[full] = (value, expires)
 
     def _key(self, key: str) -> str:
         return f"{self.prefix}:{key}"
@@ -53,9 +66,27 @@ class RedisCache:
             logger.warning(f"[RedisCache] SET 失败 (key={full})，降级到内存: {exc}")
             expires = time.time() + ttl if ttl > 0 else None
             try:
-                self._mem[full] = (json.loads(payload), expires)
+                self._mem_set(full, json.loads(payload), expires)
             except Exception:
-                self._mem[full] = (value, expires)
+                self._mem_set(full, value, expires)
+
+    async def incr(self, key: str) -> int:
+        """修复（§4.9）：原子递增（Redis INCR），供版本号等并发安全递增；降级内存也递增。"""
+        full = self._key(key)
+        try:
+            from app.db.redis import get_redis
+
+            redis = await get_redis()
+            return int(await redis.incr(full))
+        except Exception as exc:
+            logger.warning(f"[RedisCache] INCR 失败 (key={full})，降级内存: {exc}")
+            cur = self._mem.get(full, (0, None))[0]
+            try:
+                nxt = int(cur) + 1
+            except Exception:
+                nxt = 1
+            self._mem_set(full, nxt, None)
+            return nxt
 
     async def delete(self, key: str) -> None:
         full = self._key(key)

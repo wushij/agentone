@@ -52,11 +52,10 @@ async def upload_file(
 @router.get("/{file_id}/download")
 def download_file(
     file_id: str,
-    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     svc = FileService(db)
-    row = svc.get_file(user.id, file_id)
+    row = svc.get_file_by_id(file_id)
     if row is None:
         raise ValueError("文件不存在")
     path = svc.resolve_path(row)

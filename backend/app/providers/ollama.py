@@ -20,6 +20,7 @@ class OllamaProvider(BaseProvider):
             raise ImportError(
                 "langchain-ollama is not installed. Run: pip install langchain-ollama"
             ) from exc
+        kwargs.pop("streaming", None)  # ChatOllama 不接受 streaming 构造参
         return ChatOllama(
             model=model_name,
             base_url=base_url or "http://localhost:11434",

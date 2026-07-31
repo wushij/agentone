@@ -13,7 +13,10 @@ from sqlalchemy.orm import Session
 from app.models.file_asset import FileAsset, new_file_id
 from app.storage import uploads_dir
 
-_ALLOWED_EXT = {".pdf", ".doc", ".docx", ".txt", ".md", ".markdown", ".xlsx", ".xls"}
+_ALLOWED_EXT = {
+    ".pdf", ".doc", ".docx", ".txt", ".md", ".markdown", ".xlsx", ".xls",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"
+}
 
 
 class FileService:
@@ -48,6 +51,9 @@ class FileService:
         if row is None or row.user_id != user_id:
             return None
         return row
+
+    def get_file_by_id(self, file_id: str) -> FileAsset | None:
+        return self.db.get(FileAsset, file_id)
 
     async def upload(self, user_id: int, file: UploadFile, category: str = "general") -> FileAsset:
         original = file.filename or "unnamed"

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.api.v1.ws import init_notify_listener, shutdown_notify_listener
 from app.db import redis as redis_module
-from app.middleware.exception_handler import http_exception_handler, value_error_handler
+from app.middleware.exception_handler import global_exception_handler, http_exception_handler, value_error_handler
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_log import RequestLogMiddleware
 from app.utils.logger import logger
@@ -138,6 +138,7 @@ app.include_router(api_router)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(ValueError, value_error_handler)
+app.add_exception_handler(Exception, global_exception_handler)
 
 
 @app.get("/health")

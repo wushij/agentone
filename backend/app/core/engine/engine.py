@@ -170,8 +170,9 @@ async def _unsupported_node(state: AgentState) -> dict:
 
 async def _error_handler_node(state: AgentState) -> dict:
     message = state.get("error") or state.get("tool_error") or "执行失败，请稍后重试"
+    # 修复（§4.2）：只写 error，不写 final_answer，使流末尾的错误守卫
+    # `if error and not final_answer` 能成立→发出 error 事件，不再误入 summarizer 把错误“编”成正常回答。
     return {
-        "final_answer": message,
         "error": message,
         "current_node": "error_handler",
     }
@@ -430,8 +431,89 @@ class GraphRunner:
         if thinking_level and thinking_level != "standard":
             metadata["thinking_level"] = thinking_level
 
+        # 修复（§4.5）：记忆召回接线——把会话摘要/长期记忆写入 memory_context，ContextBuilder 会注入 Prompt（之前“写入有、召回注入无”）
+        try:
+            from app.memory import get_memory_manager
+
+            mem_ctx = await get_memory_manager().build_context_block(
+                conversation_id=conv_id, user_id=user_id, query=original_query
+            )
+            if mem_ctx:
+                metadata["memory_context"] = mem_ctx
+        except Exception as exc:
+            logger.warning(f"[Engine] 记忆召回失败（已降级跳过）: {exc}")
+
         yield step_event(ctx, "prepare", "running")
         yield step_event(ctx, "prepare", "success")
+
+        # 1. 仅检索模式（Direct Retrieval Mode）：直接返回命中段落卡片
+        if resolved_kb_ids and kb_mode == "retrieve":
+            try:
+                from app.services.rag.rag_service import RagService, format_kb_retrieve_answer
+                yield step_event(ctx, "rag", "running")
+                await self._emit_status(ctx, "rag", "running")
+                rag_started = time.perf_counter()
+                kb_chunks = await RagService.fetch_kb_chunks_multi(resolved_kb_ids, original_query)
+                rag_ms = int((time.perf_counter() - rag_started) * 1000)
+                if kb_chunks:
+                    retrieve_limit = 5
+                    kb_chunks = kb_chunks[:retrieve_limit]
+                    hit = len(kb_chunks)
+                    kb_detail = (
+                        f"知识库检索命中 {hit} 条（{len(resolved_kb_ids)} 个库）"
+                        if len(resolved_kb_ids) > 1
+                        else f"知识库检索命中 {hit} 条"
+                    )
+                    yield step_event(ctx, "rag", "success", elapsed_ms=rag_ms, detail=kb_detail)
+                    await self._emit_status(ctx, "rag", "success", elapsed_ms=rag_ms, detail=f"命中 {hit} 条")
+                    answer = format_kb_retrieve_answer(original_query, kb_chunks)
+                    yield step_event(ctx, "format", "running")
+                    completion_tokens = 0
+                    async for event in _stream_text_as_tokens(ctx, answer):
+                        completion_tokens += max(1, len(event.data.get("delta", "")) // 4)
+                        yield event
+                    yield step_event(ctx, "format", "success")
+                    yield usage_event(ctx, TokenUsage(prompt_tokens=0, completion_tokens=completion_tokens))
+                    yield done_event(ctx, "stop")
+                    return
+                yield step_event(ctx, "rag", "success", elapsed_ms=rag_ms, detail="检索无命中，改由大模型作答")
+                await self._emit_status(ctx, "rag", "success", elapsed_ms=rag_ms, detail="检索无命中，改由大模型作答")
+                metadata["rag_empty"] = True
+            except Exception as exc:
+                yield step_event(ctx, "rag", "error", error=str(exc))
+                yield error_event(ctx, "RAG_FAILED", str(exc))
+                yield done_event(ctx, "error")
+                return
+
+        # 2. 知识库 RAG 上下文检索：必须在进入多 Agent 或计划模式前优先装载 rag_context！
+        if resolved_kb_ids:
+            try:
+                from app.services.rag.rag_service import RagService
+                yield step_event(ctx, "rag", "running")
+                rag_started = time.perf_counter()
+                kb_chunks = await RagService.fetch_kb_chunks_multi(resolved_kb_ids, original_query)
+                rag_ms = int((time.perf_counter() - rag_started) * 1000)
+                if kb_chunks:
+                    ref_text = "\n\n".join(
+                        [
+                            f"【资料 {idx} · {c.get('kbName', '知识库')}】\n{c['text']}"
+                            for idx, c in enumerate(kb_chunks, 1)
+                        ]
+                    )
+                    metadata["rag_context"] = ref_text
+                    user_input = original_query
+                kb_detail = (
+                    f"知识库检索命中 {len(kb_chunks or [])} 条（{len(resolved_kb_ids)} 个库）"
+                    if len(resolved_kb_ids) > 1
+                    else (
+                        f"知识库检索命中 {len(kb_chunks or [])} 条"
+                        if kb_chunks
+                        else "检索无命中，改由大模型作答"
+                    )
+                )
+                yield step_event(ctx, "rag", "success", elapsed_ms=rag_ms, detail=kb_detail)
+            except Exception:
+                yield step_event(ctx, "rag", "error", error="知识库检索失败，将直接作答")
 
         # 多 Agent 编排路径（§15，opt-in）：Supervisor 选专家 → 子 Agent ReactLoop
         if multi_agent:
@@ -484,73 +566,6 @@ class GraphRunner:
                 yield error_event(ctx, "PLAN_EXECUTE_FAILED", str(exc))
                 yield done_event(ctx, "error")
             return
-
-        if resolved_kb_ids and kb_mode == "retrieve":
-            try:
-                from app.services.rag.rag_service import RagService, format_kb_retrieve_answer
-                yield step_event(ctx, "rag", "running")
-                await self._emit_status(ctx, "rag", "running")
-                rag_started = time.perf_counter()
-                kb_chunks = await RagService.fetch_kb_chunks_multi(resolved_kb_ids, original_query)
-                rag_ms = int((time.perf_counter() - rag_started) * 1000)
-                if kb_chunks:
-                    retrieve_limit = 5 if len(resolved_kb_ids) > 1 else 1
-                    kb_chunks = kb_chunks[:retrieve_limit]
-                    hit = len(kb_chunks)
-                    kb_detail = (
-                        f"知识库检索命中 {hit} 条（{len(resolved_kb_ids)} 个库）"
-                        if len(resolved_kb_ids) > 1
-                        else f"知识库检索命中 {hit} 条"
-                    )
-                    yield step_event(ctx, "rag", "success", elapsed_ms=rag_ms, detail=kb_detail)
-                    await self._emit_status(ctx, "rag", "success", elapsed_ms=rag_ms, detail=f"命中 {hit} 条")
-                    answer = format_kb_retrieve_answer(original_query, kb_chunks)
-                    yield step_event(ctx, "format", "running")
-                    completion_tokens = 0
-                    async for event in _stream_text_as_tokens(ctx, answer):
-                        completion_tokens += max(1, len(event.data.get("delta", "")) // 4)
-                        yield event
-                    yield step_event(ctx, "format", "success")
-                    yield usage_event(ctx, TokenUsage(prompt_tokens=0, completion_tokens=completion_tokens))
-                    yield done_event(ctx, "stop")
-                    return
-                yield step_event(ctx, "rag", "success", elapsed_ms=rag_ms, detail="检索无命中，改由大模型作答")
-                await self._emit_status(ctx, "rag", "success", elapsed_ms=rag_ms, detail="检索无命中，改由大模型作答")
-                metadata["rag_empty"] = True
-            except Exception as exc:
-                yield step_event(ctx, "rag", "error", error=str(exc))
-                yield error_event(ctx, "RAG_FAILED", str(exc))
-                yield done_event(ctx, "error")
-                return
-
-        if resolved_kb_ids:
-            try:
-                from app.services.rag.rag_service import RagService
-                yield step_event(ctx, "rag", "running")
-                rag_started = time.perf_counter()
-                kb_chunks = await RagService.fetch_kb_chunks_multi(resolved_kb_ids, original_query)
-                rag_ms = int((time.perf_counter() - rag_started) * 1000)
-                if kb_chunks:
-                    ref_text = "\n\n".join(
-                        [
-                            f"【资料 {idx} · {c.get('kbName', '知识库')}】\n{c['text']}"
-                            for idx, c in enumerate(kb_chunks, 1)
-                        ]
-                    )
-                    metadata["rag_context"] = ref_text
-                    user_input = original_query
-                kb_detail = (
-                    f"知识库检索命中 {len(kb_chunks or [])} 条（{len(resolved_kb_ids)} 个库）"
-                    if len(resolved_kb_ids) > 1
-                    else (
-                        f"知识库检索命中 {len(kb_chunks or [])} 条"
-                        if kb_chunks
-                        else "检索无命中，改由大模型作答"
-                    )
-                )
-                yield step_event(ctx, "rag", "success", elapsed_ms=rag_ms, detail=kb_detail)
-            except Exception:
-                yield step_event(ctx, "rag", "error", error="知识库检索失败，将直接作答")
 
         state = init_state(
             user_input=user_input,
@@ -618,10 +633,11 @@ class GraphRunner:
 
             yield step_event(ctx, "summarizer", "running")
             await self._emit_status(ctx, "summarizer", "running")
-            completion_tokens = 0
+            from app.agents.writer import UsageCollector
+
+            collector = UsageCollector()
             chunks = []
-            async for delta in stream_summarizer_tokens(state):
-                completion_tokens += max(1, len(delta) // 4)
+            async for delta in stream_summarizer_tokens(state, usage=collector):
                 chunks.append(delta)
                 yield token_event(ctx, delta)
             await self._emit_status(ctx, "summarizer", "success", detail="回答生成完成")
@@ -631,7 +647,27 @@ class GraphRunner:
             state["final_answer"] = final_answer
             state["llm_response"] = final_answer
 
-            yield usage_event(ctx, TokenUsage(prompt_tokens=80, completion_tokens=completion_tokens))
+            # 修复（§4.2 usage 伪造）：用 UsageCollector 真实/估算 token，不再硬编 80
+            yield usage_event(ctx, TokenUsage(
+                prompt_tokens=collector.prompt_tokens,
+                completion_tokens=collector.completion_tokens,
+            ))
+            # 成本落库（§9.2）：传统图路径也记账
+            try:
+                from app.runtime.cost.manager import record_cost
+
+                meta = state.get("metadata") or {}
+                await record_cost(
+                    user_id=user_id,
+                    conversation_id=conv_id,
+                    trace_id=str(meta.get("trace_id") or ""),
+                    agent_role="chat",
+                    prompt_tokens=collector.prompt_tokens,
+                    completion_tokens=collector.completion_tokens,
+                    model_id=model_id,
+                )
+            except Exception as exc:
+                logger.warning(f"[Engine] 成本落库失败（已降级跳过）: {exc}")
             yield done_event(ctx, "stop")
 
         except Exception as exc:

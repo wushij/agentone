@@ -33,6 +33,7 @@ from app.core.events.events import (
     usage_event,
 )
 from app.runtime.executor.tool_binding import accumulate_usage, extract_tool_calls
+from app.utils.logger import logger
 
 MAX_ITERATIONS = 10
 MAX_REFLECTIONS = 2
@@ -274,11 +275,11 @@ class ReactLoop:
             )
             # 成本落库（§9.2）
             try:
-                from app.core.engine.engine import _record_cost
+                from app.runtime.cost.manager import record_cost
 
                 meta = state.get("metadata") or {}
-                await _record_cost(
-                    user_id=str(state.get("user_id") or ""),
+                await record_cost(
+                    user_id=state.get("user_id"),
                     conversation_id=str(state.get("conversation_id") or ""),
                     trace_id=str(meta.get("trace_id") or ""),
                     agent_role="react",
@@ -286,8 +287,8 @@ class ReactLoop:
                     completion_tokens=self.usage_totals["completion_tokens"] + collector.completion_tokens,
                     model_id=meta.get("model_id"),
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(f"[ReactLoop] 成本落库失败（已降级跳过）: {exc}")
             yield done_event(ctx, "stop")
 
         except Exception as exc:

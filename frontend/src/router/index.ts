@@ -114,7 +114,8 @@ const router = createRouter({
           meta: { title: '个人中心' }
         }
       ]
-    }
+    },
+    { path: '/:pathMatch(.*)*', redirect: '/chat' }
   ]
 })
 
@@ -126,7 +127,11 @@ router.beforeEach(async (to) => {
   document.title = title
 
   if (to.path === '/login') {
-    if (userStore.isAuthenticated) return '/chat'
+    if (userStore.isAuthenticated) {
+      // 修复（§5.4）：已登录访问 /login 时尊重 redirect 参数，而非固定跳 /chat
+      const r = to.query.redirect
+      return typeof r === 'string' && r.startsWith('/') ? r : '/chat'
+    }
     return true
   }
 

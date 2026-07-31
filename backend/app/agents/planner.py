@@ -117,12 +117,12 @@ def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
     if _looks_like_prompt_engineering(text):
         return "prompt_engineer", "", {}
 
-    if _CALC_HINT.search(text) or looks_like_calculation(text):
-        expression = extract_expression(text)
-        if expression and re.search(r"\d", expression):
-            return "calculator", "calculator", {"expression": expression}
-
     lowered = text.lower()
+    is_image_ctx = any(k in lowered for k in ("图片", "壁纸", "照片", "![", ".jpg", ".png", ".jpeg", ".webp", ".gif", "长发", "短发", "黑发", "金发"))
+    if not is_image_ctx and (_CALC_HINT.search(text) or looks_like_calculation(text)):
+        expression = extract_expression(text)
+        if expression and re.search(r"\d", expression) and expression.lower() not in ("4k", "2k", "1080p"):
+            return "calculator", "calculator", {"expression": expression}
     if any(k in lowered for k in ("搜索", "search", "查一下", "查询资料", "网上", "百度", "google", "duckduckgo", "搜一下", "搜", "帮我查")):
         return "search", "search", {"query": extract_search_query(text)}
     if any(k in lowered for k in ("文件", "读取", "上传", "file", "文档", "pdf", "excel")) or wants_file_list(text):

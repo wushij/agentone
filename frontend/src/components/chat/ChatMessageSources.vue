@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { h, type VNode } from 'vue'
 import { Compass, Document } from '@element-plus/icons-vue'
 import type { MessageSource } from '@/types'
 
@@ -16,6 +17,76 @@ defineProps<{
   } | null
   sources?: MessageSource[]
 }>()
+
+function renderLinkifiedText(text: string): VNode[] {
+  if (!text) return []
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)|(https?:\/\/[a-zA-Z0-9\-\._~:/?#[\]@!\$&'\*\+;=%]+)/g
+  const nodes: VNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(h('span', text.slice(lastIndex, match.index)))
+    }
+
+    if (match[1] && match[2]) {
+      const label = match[1]
+      const url = match[2]
+      nodes.push(
+        h(
+          'a',
+          {
+            href: url,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            class: 'clickable-link'
+          },
+          label
+        )
+      )
+    } else if (match[3]) {
+      let url = match[3]
+      let trailingPunctuation = ''
+
+      // 剥离 URL 尾部误吞的括号与标点符号（如 ) ] } 。 ， ； 等）
+      const trailingMatch = url.match(/[)\uff09\]\}\>。，；!！?？,\.]+$|\)+$/)
+      if (trailingMatch) {
+        trailingPunctuation = trailingMatch[0]
+        url = url.slice(0, -trailingPunctuation.length)
+      }
+
+      nodes.push(
+        h(
+          'a',
+          {
+            href: url,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            class: 'clickable-link'
+          },
+          url
+        )
+      )
+
+      if (trailingPunctuation) {
+        nodes.push(h('span', trailingPunctuation))
+      }
+    }
+
+    lastIndex = regex.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(h('span', text.slice(lastIndex)))
+  }
+
+  return nodes
+}
+
+const FormattedText = (props: { text: string }) => {
+  return h('span', renderLinkifiedText(props.text))
+}
 </script>
 
 <template>
@@ -39,15 +110,15 @@ defineProps<{
           <div v-if="source.isQa" class="source-content qa-format">
             <div class="qa-item q-item">
               <span class="qa-badge q-badge">问</span>
-              <p class="qa-text">{{ source.question }}</p>
+              <p class="qa-text"><FormattedText :text="source.question" /></p>
             </div>
             <div class="qa-item a-item">
               <span class="qa-badge a-badge">答</span>
-              <p class="qa-text">{{ source.answer }}</p>
+              <p class="qa-text"><FormattedText :text="source.answer" /></p>
             </div>
           </div>
           <div v-else class="source-content text-format">
-            <pre class="raw-content">{{ source.content }}</pre>
+            <pre class="raw-content"><FormattedText :text="source.content" /></pre>
           </div>
         </div>
       </div>
@@ -78,7 +149,7 @@ defineProps<{
             <span class="citation-kb">{{ src.kbName || '默认知识库' }}</span>
             <span v-if="src.score" class="citation-score">匹配度 {{ Math.round(src.score * 100) }}%</span>
           </div>
-          <p v-if="src.text" class="citation-text">{{ src.text }}</p>
+          <p v-if="src.text" class="citation-text"><FormattedText :text="src.text" /></p>
         </div>
       </el-popover>
     </div>
@@ -202,5 +273,22 @@ defineProps<{
 .citation-tag:hover {
   background: rgba(99, 102, 241, 0.15);
   color: var(--theme-primary);
+}
+
+:deep(.clickable-link),
+.clickable-link {
+  color: var(--theme-primary, #6366f1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+  cursor: pointer;
+  word-break: break-all;
+  transition: all 0.15s ease;
+}
+
+:deep(.clickable-link:hover),
+.clickable-link:hover {
+  opacity: 0.85;
+  color: #4f46e5;
 }
 </style>

@@ -24,7 +24,11 @@ class KnowledgeManager:
         return load_document(file_path)
 
     async def build(self, file_path: str | Path, kb_id: str = "") -> dict[str, Any]:
-        """从文件读取、切片并建构建向量索引。"""
+        """从文件读取、切片并构建向量索引。
+
+        planned（未接入主链路）：生产 RAG 走 services/rag/RagService；
+        此门面依赖的 FaissStore 仍为占位（方法抛 NotImplementedError），调用前需先补齐实现。
+        """
         docs = self.load(file_path)
         chunks = self.splitter.split(docs)
         for chunk in chunks:

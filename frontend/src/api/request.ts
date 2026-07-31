@@ -201,7 +201,8 @@ async function refreshAccessToken(): Promise<string> {
   return newToken
 }
 
-async function refreshAccessTokenWithRetry(maxAttempts = 3): Promise<string> {
+// 导出供 SSE 直连 fetch 联动静默刷新（§5.1）
+export async function refreshAccessTokenWithRetry(maxAttempts = 3): Promise<string> {
   let lastError: unknown
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {

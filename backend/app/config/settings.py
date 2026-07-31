@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 10080
     # 安全（§17.4）：为 true 时，SECRET_KEY 仍为默认弱值则拒绝启动
     REQUIRE_STRONG_SECRET: bool = False
+    # 安全（§4.9）：仅在可信反向代理后部署时置 true，才采信 X-Forwarded-For 头；
+    # 默认 false 避免直连后端伪造 IP 绕过限流/黑名单。
+    TRUST_PROXY: bool = False
 
     LLM_PROVIDER: str = "mock"
     DEEPSEEK_API_KEY: str = ""

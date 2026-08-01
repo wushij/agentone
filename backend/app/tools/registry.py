@@ -8,6 +8,11 @@ from app.tools.compute.python_executor import PythonExecutorTool
 from app.tools.data.chart import ChartTool
 from app.tools.database.database import DatabaseTool
 from app.tools.file.file import FileTool
+from app.tools.multimodal.audio_tool import AudioTool
+from app.tools.multimodal.document_tool import DocumentTool
+from app.tools.multimodal.image_tool import ImageTool
+from app.tools.multimodal.ocr_tool import OCRTool
+from app.tools.multimodal.video_tool import VideoTool
 from app.tools.network.http_request import HttpRequestTool
 from app.tools.network.search import SearchTool
 
@@ -19,6 +24,11 @@ _TOOLS: dict[str, BaseTool] = {
     PythonExecutorTool.name: PythonExecutorTool(),
     ChartTool.name: ChartTool(),
     HttpRequestTool.name: HttpRequestTool(),
+    ImageTool.name: ImageTool(),
+    OCRTool.name: OCRTool(),
+    DocumentTool.name: DocumentTool(),
+    AudioTool.name: AudioTool(),
+    VideoTool.name: VideoTool(),
 }
 
 

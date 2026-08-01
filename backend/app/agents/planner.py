@@ -111,6 +111,23 @@ def _looks_like_prompt_engineering(text: str) -> bool:
     return False
 
 
+def _detect_multimodal(text: str, lowered: str) -> tuple[IntentType, str, dict] | None:
+    """多模态意图识别（传统图路径）：关键词力求特异避免误伤；文件由工具自行定位。"""
+    if "ocr" in lowered or any(k in text for k in ("提取文字", "识别文字", "识别图中", "发票", "身份证", "票据识别", "文字提取")):
+        return "ocr", "ocr_extract", {"query": ""}
+    if "关键帧" in text or ("视频" in text and any(k in text for k in ("分析", "识别", "内容", "画面", "看看", "描述"))):
+        return "video", "video_analyze", {"question": text}
+    if any(k in text for k in ("转写", "语音转文字", "音频转", "录音转", "会议记录", "语音识别")):
+        return "audio", "audio_transcribe", {"query": ""}
+    # 附带图片（前端将图片拼成 markdown ![](.../download?token=xxx)）→ 优先路由到视觉工具；或显式看图自然关键词
+    has_img_md = bool(re.search(r"!\[[^\]]*\]\([^)]+\)", text))
+    if has_img_md or any(k in text for k in ("看看这张", "这张图", "这张照片", "图片里", "图片中", "图片多少", "图片内容", "分析图片", "识别图片", "看图", "图中", "图里", "画面里", "照片里", "照片中", "这是什么图", "长发", "短发", "黑发", "金发", "发型", "多少个", "多少人")):
+        return "image", "image_analyze", {"question": text}
+    if any(k in text for k in ("总结文档", "文档摘要", "摘要文档", "文档总结", "文档问答", "总结一下文档", "文档里讲")):
+        return "document", "document_qa", {"question": text}
+    return None
+
+
 def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
     text = user_input.strip()
 
@@ -118,6 +135,9 @@ def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
         return "prompt_engineer", "", {}
 
     lowered = text.lower()
+    mm = _detect_multimodal(text, lowered)
+    if mm is not None:
+        return mm
     is_image_ctx = any(k in lowered for k in ("图片", "壁纸", "照片", "![", ".jpg", ".png", ".jpeg", ".webp", ".gif", "长发", "短发", "黑发", "金发"))
     if not is_image_ctx and (_CALC_HINT.search(text) or looks_like_calculation(text)):
         expression = extract_expression(text)

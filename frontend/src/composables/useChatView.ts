@@ -85,7 +85,7 @@ export interface ChatViewContext {
   handleDeleteMessage: (messageId: string) => Promise<void>
   handleExport: () => void
   formatSessionTime: (value: string) => string
-  attachedFile: Ref<{ id: string; name: string } | null>
+  attachedFile: Ref<{ id: string; name: string; url?: string; isImage?: boolean } | null>
   uploadingFile: Ref<boolean>
   handleUploadChatFile: (file: File) => Promise<void>
   clearAttachment: () => void

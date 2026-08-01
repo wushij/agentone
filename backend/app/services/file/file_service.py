@@ -14,8 +14,11 @@ from app.models.file_asset import FileAsset, new_file_id
 from app.storage import uploads_dir
 
 _ALLOWED_EXT = {
-    ".pdf", ".doc", ".docx", ".txt", ".md", ".markdown", ".xlsx", ".xls",
-    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"
+    ".pdf", ".doc", ".docx", ".txt", ".md", ".markdown", ".xlsx", ".xls", ".csv",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg",
+    # 多模态：音频 / 视频
+    ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac",
+    ".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv",
 }
 
 

@@ -24,6 +24,14 @@ DEFAULTS = {
     "rateLimitPerMinute": 120,
     "theme": "indigo",
     "colorMode": "light",
+    # 多模态功能开关与模型（§多模态工具）
+    "imageEnabled": True,
+    "ocrEnabled": True,
+    "documentEnabled": True,
+    "audioEnabled": True,
+    "videoEnabled": True,
+    "visionModel": "",
+    "sttModel": "whisper-1",
 }
 
 

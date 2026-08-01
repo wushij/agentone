@@ -15,7 +15,8 @@ def merge_metadata(left: dict[str, Any] | None, right: dict[str, Any] | None) ->
 
 
 IntentType = Literal[
-    "chat", "calculator", "search", "database", "file", "prompt_engineer", "unknown"
+    "chat", "calculator", "search", "database", "file", "prompt_engineer",
+    "image", "ocr", "document", "audio", "video", "unknown"
 ]
 
 

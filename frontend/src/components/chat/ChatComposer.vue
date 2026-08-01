@@ -102,7 +102,7 @@ watch(
         <button
           type="button"
           class="composer-btn composer-btn--attach"
-          title="上传关联文件与图片 (PDF, Word, TXT, MD, PNG, JPG 等)"
+          title="上传文件/图片/音视频 (PDF, Word, 图片, MP3, MP4 等，可对其提问)"
           :disabled="uploadingFile"
           @click="triggerFileSelect"
         >
@@ -113,7 +113,7 @@ watch(
           ref="fileInputRef"
           type="file"
           style="display: none"
-          accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls"
+          accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls,.csv,.mp3,.wav,.m4a,.flac,.ogg,.aac,.mp4,.avi,.mov,.mkv,.webm,.flv"
           @change="onFileChange"
         />
 
@@ -175,7 +175,7 @@ watch(
             <button
               type="button"
               class="composer-btn composer-btn--attach"
-              title="上传关联文件与图片 (PDF, Word, TXT, MD, PNG, JPG 等)"
+              title="上传文件/图片/音视频 (PDF, Word, 图片, MP3, MP4 等，可对其提问)"
               :disabled="uploadingFile"
               @click="triggerFileSelect"
             >
@@ -186,7 +186,7 @@ watch(
               ref="fileInputRef"
               type="file"
               style="display: none"
-              accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls"
+              accept=".pdf,.docx,.doc,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.xlsx,.xls,.csv,.mp3,.wav,.m4a,.flac,.ogg,.aac,.mp4,.avi,.mov,.mkv,.webm,.flv"
               @change="onFileChange"
             />
           </div>

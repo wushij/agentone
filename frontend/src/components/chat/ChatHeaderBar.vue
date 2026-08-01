@@ -82,6 +82,7 @@ function onKbModeChange(value: string | number | boolean) {
       <el-select
         v-model="selectedKbIds"
         class="header-select header-kb-select"
+        popper-class="header-select-dropdown-panel"
         multiple
         collapse-tags
         collapse-tags-tooltip
@@ -96,7 +97,7 @@ function onKbModeChange(value: string | number | boolean) {
       </el-select>
       <el-tooltip
         v-if="selectedKbIds.length"
-        content="可同时挂载最多 10 个知识库。RAG：检索后由大模型组织回答；仅检索：直接返回知识库原文，不调用对话大模型"
+        content="RAG：大模型总结回答 | 仅检索：直出原文（不耗 Token）"
         placement="bottom"
       >
         <el-switch
@@ -216,9 +217,9 @@ function onKbModeChange(value: string | number | boolean) {
 }
 
 .header-select :deep(.el-select__wrapper) {
-  border-radius: 10px !important;
+  border-radius: 999px !important;
   min-height: 28px;
-  padding: 0 28px 0 10px !important;
+  padding: 0 28px 0 12px !important;
   box-shadow: 0 0 0 1px var(--ao-border) inset !important;
 }
 
@@ -396,5 +397,18 @@ function onKbModeChange(value: string | number | boolean) {
   padding: 10px !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
   transition: opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.header-select-dropdown-panel {
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  padding: 6px !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14) !important;
+  border: 1px solid var(--ao-border, rgba(0, 0, 0, 0.08)) !important;
+}
+
+.header-select-dropdown-panel .el-select-dropdown__item {
+  border-radius: 8px !important;
+  margin: 2px 0;
 }
 </style>

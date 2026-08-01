@@ -212,4 +212,12 @@ const sectionLabel = computed(() => props.section ?? (route.meta.section as stri
 .page-banner__actions :deep(.el-button .el-icon) {
   color: inherit !important;
 }
+
+.page-banner__actions :deep(.btn-icon-plus svg),
+.page-banner__actions :deep(.el-icon svg) {
+  stroke: currentColor !important;
+  stroke-width: 1.4px !important;
+  -webkit-text-stroke: 0.8px currentColor !important;
+  transform: scale(1.08);
+}
 </style>

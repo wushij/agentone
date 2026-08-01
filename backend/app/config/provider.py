@@ -10,7 +10,7 @@ class ProviderConfig:
     base_url: str = ""
     model: str = ""
     temperature: float = 0.7
-    max_tokens: int = 4096
+    max_tokens: int = 8192
     extra: dict = field(default_factory=dict)
 
 

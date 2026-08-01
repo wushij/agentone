@@ -20,6 +20,7 @@ router = APIRouter(prefix="/files", tags=["文件中心"])
 @router.get("")
 def list_files(
     keyword: str = Query(default=""),
+    file_type: str = Query(default="all"),
     page: int = Query(default=1, ge=1),
     size: int = Query(default=10, ge=1, le=100),
     user: User = Depends(get_current_user),
@@ -27,7 +28,7 @@ def list_files(
 ):
     page, size = clamp_page(page, size)
     svc = FileService(db)
-    rows, total = svc.list_files(user.id, keyword=keyword, page=page, size=size)
+    rows, total = svc.list_files(user.id, keyword=keyword, file_type=file_type, page=page, size=size)
     return success(page_result([svc.to_dict(r) for r in rows], total))
 
 

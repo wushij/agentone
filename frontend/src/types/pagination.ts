@@ -8,4 +8,8 @@ export interface ApiListParams {
   size?: number
   keyword?: string
   q?: string
+  role?: string
+  file_type?: string
+  status?: number | string
+  [key: string]: unknown
 }

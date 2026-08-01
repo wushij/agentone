@@ -32,15 +32,48 @@ class FileService:
         user_id: int,
         *,
         keyword: str = "",
+        file_type: str = "all",
         page: int = 1,
         size: int = 10,
     ) -> tuple[list[FileAsset], int]:
         stmt = select(FileAsset).where(FileAsset.user_id == user_id)
         count_stmt = select(func.count()).select_from(FileAsset).where(FileAsset.user_id == user_id)
+
         if keyword:
-            flt = FileAsset.original_name.like(f"%{keyword}%")
+            flt = FileAsset.original_name.ilike(f"%{keyword}%")
             stmt = stmt.where(flt)
             count_stmt = count_stmt.where(flt)
+
+        IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")
+        DOC_EXTS = (".pdf", ".doc", ".docx", ".txt", ".md", ".markdown", ".xlsx", ".xls", ".csv")
+        VIDEO_EXTS = (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv")
+        AUDIO_EXTS = (".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac")
+
+        if file_type and file_type != "all":
+            ext_list: tuple[str, ...] = ()
+            if file_type == "image":
+                ext_list = IMAGE_EXTS
+            elif file_type == "document":
+                ext_list = DOC_EXTS
+            elif file_type == "video":
+                ext_list = VIDEO_EXTS
+            elif file_type == "audio":
+                ext_list = AUDIO_EXTS
+
+            if ext_list:
+                from sqlalchemy import or_
+                conditions = [FileAsset.original_name.ilike(f"%{ext}") for ext in ext_list]
+                if file_type == "image":
+                    conditions.append(FileAsset.mime_type.ilike("image/%"))
+                elif file_type == "video":
+                    conditions.append(FileAsset.mime_type.ilike("video/%"))
+                elif file_type == "audio":
+                    conditions.append(FileAsset.mime_type.ilike("audio/%"))
+
+                flt_type = or_(*conditions)
+                stmt = stmt.where(flt_type)
+                count_stmt = count_stmt.where(flt_type)
+
         total = int(self.db.scalar(count_stmt) or 0)
         rows = list(
             self.db.scalars(

@@ -54,6 +54,7 @@ async def run_agent_task(task_id: str, user_id: int, input_text: str, push: Prog
         await hub.publish(user_id, {
             "type": "notification",
             "payload": {
+                "id": f"task_done_{task_id}",
                 "level": "success",
                 "title": "任务完成",
                 "body": f"「{input_text[:30]}」已执行完毕，产出报告已生成。",

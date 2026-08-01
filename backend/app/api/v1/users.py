@@ -24,11 +24,13 @@ def list_users(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=10, ge=1, le=100),
     keyword: str = Query(default=""),
+    role: str = Query(default=""),
+    status: int | None = Query(default=None),
     user: User = Depends(require_permission("user:manage")),
     service: UserService = Depends(get_user_service),
 ):
     page, size = clamp_page(page, size)
-    rows, total = service.list_users(page=page, size=size, keyword=keyword)
+    rows, total = service.list_users(page=page, size=size, keyword=keyword, role=role, status=status)
     records = [u.model_dump(by_alias=True) for u in rows]
     return success(page_result(records, total))
 

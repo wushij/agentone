@@ -17,7 +17,14 @@ export const useNotifyStore = defineStore('notify', () => {
   )
 
   function addNotification(item: Omit<NotificationItem, 'read'>): boolean {
-    if (notifications.value.some((n) => n.id === item.id)) {
+    const itemTime = new Date(item.timestamp).getTime()
+    const isDuplicate = notifications.value.some((n) => {
+      if (n.id === item.id) return true
+      const existingTime = new Date(n.timestamp).getTime()
+      const isSameContent = n.title === item.title && n.body === item.body
+      return isSameContent && Math.abs(itemTime - existingTime) < 5000
+    })
+    if (isDuplicate) {
       return false
     }
     const entry: NotificationItem = { ...item, read: false }

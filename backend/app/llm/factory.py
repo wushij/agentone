@@ -35,6 +35,7 @@ def create_chat_model_from_config(cfg: ModelConfig, *, thinking_level: str = "st
     # 修复（§4.9）：显式 temperature 入参优先于 cfg.temperature
     base_temp = float(temperature if temperature is not None else cfg.temperature)
     provider = get_provider(cfg.provider)
+    kwargs.setdefault("max_tokens", 8192)
     return provider.create_chat_model(
         model_name=cfg.model_name,
         api_key=api_key or "",

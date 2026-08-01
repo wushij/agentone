@@ -222,6 +222,14 @@
 }
 
 /* ── Overlays ── */
+.btn-icon-plus svg,
+.el-icon.btn-icon-plus svg {
+  stroke: currentColor !important;
+  stroke-width: 1.4px !important;
+  -webkit-text-stroke: 0.8px currentColor !important;
+  transform: scale(1.08);
+}
+
 .el-overlay {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

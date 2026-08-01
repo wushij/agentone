@@ -22,14 +22,30 @@ class UserService:
         page: int = 1,
         size: int = 10,
         keyword: str = "",
+        role: str = "",
+        status: int | None = None,
     ) -> tuple[list[UserItem], int]:
+        from sqlalchemy import or_
+
         stmt = select(User)
         count_stmt = select(func.count()).select_from(User)
+
         if keyword.strip():
             kw = f"%{keyword.strip()}%"
-            flt = or_(User.username.like(kw), User.nickname.like(kw))
+            flt = or_(User.username.ilike(kw), User.nickname.ilike(kw))
             stmt = stmt.where(flt)
             count_stmt = count_stmt.where(flt)
+
+        if role.strip():
+            flt_role = User.role == role.strip()
+            stmt = stmt.where(flt_role)
+            count_stmt = count_stmt.where(flt_role)
+
+        if status is not None:
+            flt_status = User.status == status
+            stmt = stmt.where(flt_status)
+            count_stmt = count_stmt.where(flt_status)
+
         total = int(self.db.scalar(count_stmt) or 0)
         rows = list(
             self.db.scalars(

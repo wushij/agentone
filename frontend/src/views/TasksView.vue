@@ -20,6 +20,8 @@ import { useNotifySocket } from '@/composables/useNotifySocket'
 import { useTaskStore } from '@/stores/task'
 import { createTask, fetchTasks, type TaskItem } from '@/api/task'
 import { formatDateTime } from '@/utils/datetime'
+import { renderMarkdown } from '@/utils/markdown'
+import { CopyDocument } from '@element-plus/icons-vue'
 
 const tasks = ref<TaskItem[]>([])
 const loading = ref(false)
@@ -28,6 +30,29 @@ const newTaskInput = ref('')
 const { page, size, total } = usePagination(10)
 const taskStore = useTaskStore()
 const notifySocket = useNotifySocket()
+
+const resultModalVisible = ref(false)
+const selectedTask = ref<TaskItem | null>(null)
+
+function viewTaskResult(task: TaskItem) {
+  selectedTask.value = task
+  resultModalVisible.value = true
+}
+
+const selectedTaskHtml = computed(() => {
+  if (!selectedTask.value?.result) return ''
+  return renderMarkdown(selectedTask.value.result)
+})
+
+async function copyResultText() {
+  if (!selectedTask.value?.result) return
+  try {
+    await navigator.clipboard.writeText(selectedTask.value.result)
+    ElMessage.success('报告内容已成功复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
 
 const STATUS_LABELS: Record<string, string> = {
   pending: '排队中',
@@ -259,12 +284,22 @@ const hasTasks = computed(() => total.value > 0)
         </el-table-column>
 
         <!-- 结果 / 错误 -->
-        <el-table-column label="执行产出 / 错误" min-width="220" align="center">
+        <el-table-column label="执行产出 / 错误" min-width="240" align="center">
           <template #default="{ row }">
-            <div v-if="row.error" class="output-box output-box--error" :title="row.error">
+            <div
+              v-if="row.error"
+              class="output-box output-box--error clickable"
+              title="点击查看完整异常信息"
+              @click="viewTaskResult(row)"
+            >
               <span class="output-text">{{ row.error }}</span>
             </div>
-            <div v-else-if="row.result" class="output-box output-box--success" :title="row.result">
+            <div
+              v-else-if="row.result"
+              class="output-box output-box--success clickable"
+              title="点击查看完整产出报告"
+              @click="viewTaskResult(row)"
+            >
               <el-icon class="success-check"><Check /></el-icon>
               <span class="output-text">{{ row.result }}</span>
             </div>
@@ -281,6 +316,61 @@ const hasTasks = computed(() => total.value > 0)
         description="提交一个长任务，Agent 将在后台自治执行并持续推送产出结果"
       />
     </div>
+
+    <!-- 任务产出报告详情弹窗 -->
+    <el-dialog
+      v-model="resultModalVisible"
+      title="任务产出报告详情"
+      width="680px"
+      align-center
+      destroy-on-close
+      class="task-result-dialog"
+    >
+      <div v-if="selectedTask" class="result-dialog-content">
+        <div class="result-dialog-meta">
+          <div class="meta-item">
+            <span class="meta-label">任务目标：</span>
+            <span class="meta-val font-semibold">{{ selectedTask.title }}</span>
+          </div>
+          <div class="meta-row">
+            <span class="status-pill" :class="`status-pill--${liveStatus(selectedTask)}`">
+              <span class="status-dot" />
+              <span>{{ STATUS_LABELS[liveStatus(selectedTask)] ?? liveStatus(selectedTask) }}</span>
+            </span>
+            <span class="meta-time">{{ formatDateTime(selectedTask.createdAt || '') }}</span>
+          </div>
+        </div>
+
+        <div class="result-dialog-body">
+          <div v-if="selectedTask.error" class="result-error-box">
+            <h4>❌ 执行异常信息</h4>
+            <pre>{{ selectedTask.error }}</pre>
+          </div>
+          <div v-else-if="selectedTaskHtml" class="chat-markdown result-markdown" v-html="selectedTaskHtml" />
+          <div v-else class="result-empty">（暂无详细产出内容）</div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <button
+            v-if="selectedTask?.result"
+            type="button"
+            class="btn-copy-report"
+            @click="copyResultText"
+          >
+            <el-icon><CopyDocument /></el-icon>
+            <span>复制报告</span>
+          </button>
+          <button
+            type="button"
+            class="btn-close-dialog"
+            @click="resultModalVisible = false"
+          >
+            关闭
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -552,6 +642,15 @@ const hasTasks = computed(() => total.value > 0)
   padding: 4px 10px;
   border-radius: 8px;
   font-size: 12px;
+  transition: all 0.2s ease;
+}
+.output-box.clickable {
+  cursor: pointer;
+}
+.output-box.clickable:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
 .output-box--success {
   background: rgba(16, 185, 129, 0.08);
@@ -572,5 +671,134 @@ const hasTasks = computed(() => total.value > 0)
 }
 .muted-text {
   color: var(--ao-text-muted);
+}
+</style>
+
+<style>
+.task-result-dialog .el-dialog {
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18) !important;
+}
+.task-result-dialog .el-dialog__header {
+  margin-bottom: 0 !important;
+  padding-bottom: 10px !important;
+}
+.task-result-dialog .el-dialog__body {
+  padding-top: 6px !important;
+  padding-bottom: 10px !important;
+}
+.result-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.result-dialog-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--ao-bg-subtle, rgba(0, 0, 0, 0.03));
+  border-radius: 10px;
+}
+.meta-item {
+  font-size: 13px;
+  color: var(--ao-text-primary);
+}
+.meta-label {
+  color: var(--ao-text-muted);
+}
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.meta-time {
+  font-size: 11px;
+  color: var(--ao-text-muted);
+}
+.result-dialog-body {
+  max-height: min(520px, 62vh);
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--ao-panel-bg, #ffffff);
+  border: 1px solid var(--ao-border, rgba(0, 0, 0, 0.08));
+  border-radius: 14px;
+}
+.result-markdown {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ao-text-primary);
+}
+.result-error-box pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: rgba(244, 63, 94, 0.06);
+  color: #f43f5e;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.result-empty {
+  color: var(--ao-text-muted);
+  text-align: center;
+  padding: 40px 0;
+}
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.btn-copy-report {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  line-height: 1;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1 !important;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-copy-report:hover {
+  background: #6366f1;
+  color: #ffffff !important;
+  border-color: #6366f1;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+.btn-copy-report .el-icon {
+  font-size: 14px;
+  color: inherit !important;
+}
+.btn-close-dialog {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  line-height: 1;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--ao-border, rgba(0, 0, 0, 0.12));
+  background: var(--ao-panel-bg, #ffffff);
+  color: var(--ao-text-secondary, #475569) !important;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-close-dialog:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ao-text-primary, #0f172a) !important;
 }
 </style>

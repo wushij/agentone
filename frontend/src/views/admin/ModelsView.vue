@@ -257,7 +257,9 @@ async function handleDelete(name: string) {
         <input type="text" style="display: none" />
         <input type="password" style="display: none" />
 
-        <el-form-item label="名称"><el-input v-model="form.name" autocomplete="off" /></el-form-item>
+        <el-form-item label="名称">
+          <el-input v-model="form.name" autocomplete="off" placeholder="请输入配置名称" />
+        </el-form-item>
         <el-form-item label="供应商">
           <el-select v-model="form.provider" placeholder="请选择供应商" style="width: 100%" @change="handleProviderChange">
             <el-option label="DeepSeek" value="deepseek" />
@@ -350,11 +352,13 @@ async function handleDelete(name: string) {
             <el-option label="kimi-k2.7-code" value="kimi-k2.7-code" />
             <el-option label="kimi-k2.6" value="kimi-k2.6" />
           </el-select>
-          <el-input v-else v-model="form.modelName" />
+          <el-input v-else v-model="form.modelName" placeholder="请输入模型名称" />
         </el-form-item>
-        <el-form-item label="请求地址"><el-input v-model="form.baseUrl" autocomplete="off" placeholder="可选" /></el-form-item>
+        <el-form-item label="请求地址">
+          <el-input v-model="form.baseUrl" autocomplete="off" placeholder="可选" />
+        </el-form-item>
         <el-form-item label="API Key">
-          <el-input v-model="form.apiKey" type="password" autocomplete="new-password" show-password :placeholder="editing?.hasApiKey ? '留空不修改' : ''" />
+          <el-input v-model="form.apiKey" type="password" autocomplete="new-password" show-password :placeholder="editing?.hasApiKey ? '留空不修改' : '请输入 API Key'" />
           <el-link
             v-if="form.provider && PROVIDER_DEFAULTS[form.provider as keyof typeof PROVIDER_DEFAULTS]?.portalUrl"
             type="primary"

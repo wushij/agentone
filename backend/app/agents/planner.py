@@ -128,7 +128,14 @@ def _detect_multimodal(text: str, lowered: str) -> tuple[IntentType, str, dict] 
     return None
 
 
-def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
+def extract_weather_city(text: str) -> str:
+    cleaned = re.sub(r"(搜索|查一下|查询|帮我查|看看|下|现在的|今天|明天|后天|实时|城市)", "", text)
+    cleaned = re.sub(r"(的天气|天气|气温|天气预报|预报|怎么样|如何|怎么样呢|的呢|呢|情况|状况)", "", cleaned).strip()
+    cleaned = re.sub(r"^[^\u4e00-\u9fa5a-zA-Z]+|[^\u4e00-\u9fa5a-zA-Z]+$", "", cleaned)
+    return cleaned if len(cleaned) >= 2 else (cleaned or "北京")
+
+
+def detect_intent(user_input: str, history: list | None = None) -> tuple[IntentType, str, dict]:
     text = user_input.strip()
 
     if _looks_like_prompt_engineering(text):
@@ -138,11 +145,29 @@ def detect_intent(user_input: str) -> tuple[IntentType, str, dict]:
     mm = _detect_multimodal(text, lowered)
     if mm is not None:
         return mm
+
+    # 1. 显式天气意图：包含“天气”、“气温”、“下雨”、“预报”
+    has_explicit_weather = any(k in lowered for k in ("天气", "气温", "下雨", "预报"))
+
+    # 2. 地名追问意图：如“佛山的呢”、“河源的呢”、“三亚呢”、“成都怎么样”
+    # 当文本较短（<=12 字）且包含“呢/的呢/怎么样/如何”，又能剥离出 2~6 字有效地名时，100% 确定为 WeatherTool 意图
+    has_followup_suffix = any(text.endswith(s) or s in text for s in ("呢", "的呢", "怎么样", "如何"))
+    extracted_city = extract_weather_city(text)
+    is_valid_city_followup = (
+        has_followup_suffix
+        and (2 <= len(extracted_city) <= 6)
+        and not any(k in text for k in ("多少", "什么", "算", "计算", "系统", "架构"))
+    )
+
     is_image_ctx = any(k in lowered for k in ("图片", "壁纸", "照片", "![", ".jpg", ".png", ".jpeg", ".webp", ".gif", "长发", "短发", "黑发", "金发"))
     if not is_image_ctx and (_CALC_HINT.search(text) or looks_like_calculation(text)):
         expression = extract_expression(text)
         if expression and re.search(r"\d", expression) and expression.lower() not in ("4k", "2k", "1080p"):
             return "calculator", "calculator", {"expression": expression}
+
+    if has_explicit_weather or is_valid_city_followup:
+        return "search", "WeatherTool", {"city": extracted_city}
+
     if any(k in lowered for k in ("搜索", "search", "查一下", "查询资料", "网上", "百度", "google", "duckduckgo", "搜一下", "搜", "帮我查")):
         return "search", "search", {"query": extract_search_query(text)}
     if any(k in lowered for k in ("文件", "读取", "上传", "file", "文档", "pdf", "excel")) or wants_file_list(text):

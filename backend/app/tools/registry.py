@@ -15,10 +15,12 @@ from app.tools.multimodal.ocr_tool import OCRTool
 from app.tools.multimodal.video_tool import VideoTool
 from app.tools.network.http_request import HttpRequestTool
 from app.tools.network.search import SearchTool
+from app.tools.network.weather import WeatherTool
 
 _TOOLS: dict[str, BaseTool] = {
     CalculatorTool.name: CalculatorTool(),
     SearchTool.name: SearchTool(),
+    WeatherTool.name: WeatherTool(),
     FileTool.name: FileTool(),
     DatabaseTool.name: DatabaseTool(),
     PythonExecutorTool.name: PythonExecutorTool(),

@@ -196,15 +196,26 @@ class MockChatModel(BaseChatModel):
         full_text = "\n\n".join(str(msg.content) for msg in messages)
 
         # 2. 提取用户最新的真实提问 (HumanMessage)
-        user_text = ""
+        raw_user_text = ""
         for msg in reversed(messages):
             if msg.type == "human":
-                user_text = str(msg.content).strip()
+                raw_user_text = str(msg.content).strip()
                 break
 
+        # 提取去掉上下文 Prompt 结构标签后的纯用户问题
+        user_text = raw_user_text
+        clean_match = re.search(r"【当前用户问题】\s*([\s\S]+?)(?=\n\n【|\n\n请基于|\n\n问[:：]|$)", raw_user_text)
+        if clean_match:
+            user_text = clean_match.group(1).strip()
+        else:
+            user_text = re.sub(r"【[^】]+】[\s\S]*$", "", user_text).strip()
+
+        if not user_text:
+            user_text = raw_user_text[:50]
+
         # 3.5 用户发送了图片或图片问答
-        if any(k in user_text.lower() for k in ("图片", ".jpg", ".png", ".webp", ".jpeg", ".gif", "![")):
-            img_match = re.search(r"!\[(.*?)\]\((.*?)\)", user_text)
+        if any(k in raw_user_text.lower() for k in ("图片", ".jpg", ".png", ".webp", ".jpeg", ".gif", "![")):
+            img_match = re.search(r"!\[(.*?)\]\((.*?)\)", raw_user_text)
             img_name = img_match.group(1) if img_match else "关联图片"
             return (
                 f"📌 **图片处理**\n\n已成功接收并校验您上传的图片「{img_name}」。\n\n"
@@ -217,8 +228,16 @@ class MockChatModel(BaseChatModel):
             if answer:
                 return _format_answer_markdown(answer)
 
-        # 4. 判别数学计算需求：必须是用户提问中显式含有数值和运算指令
-        # 严禁因 system_prompt 中包含“内置计算器工具(CalculatorTool)”而误判
+        # 4. 天气类询问
+        if any(k in user_text for k in ("天气", "气温", "下雨", "预报")):
+            return (
+                "📌 **天气查询**\n\n"
+                "当前为 Mock 演示模式，暂未接入实时天气 API。\n\n"
+                "💡 **提示**\n\n"
+                "在【工具管理】中启用 SearchTool 或天气插件，并配置真实 API Key 后即可查询实时天气预报。"
+            )
+
+        # 5. 判别数学计算需求：必须是用户提问中显式含有数值和运算指令
         math_symbols = ("+", "-", "*", "/", "×", "÷")
         has_math_op = any(op in user_text for op in math_symbols) or ("算一下" in user_text or "计算" in user_text)
         is_real_math_question = (
@@ -233,7 +252,7 @@ class MockChatModel(BaseChatModel):
                 "💡 **说明**\n\nMock 演示模式；配置真实 API Key 后可接入 DeepSeek 等模型。"
             )
 
-        # 5. 用户提问包含 AgentOne 系统架构类问题
+        # 6. 用户提问包含 AgentOne 系统架构类问题
         if any(k in user_text for k in ("AgentOne", "架构", "系统", "技术")):
             return (
                 "📌 **系统定位**\n\n"
@@ -246,7 +265,7 @@ class MockChatModel(BaseChatModel):
                 "💡 **说明**\n\n当前为 Mock 演示；配置真实 DeepSeek API Key 后可获得更完整回答。"
             )
 
-        # 6. 通用兜底
+        # 7. 通用兜底
         if user_text:
             return (
                 f"📌 **说明**\n\n关于「{user_text}」，当前为 Mock 演示模式。\n\n"

@@ -57,7 +57,6 @@ function toggleOutput() {
             <pre class="tool-card__code tool-card__code--result">{{ tool.output }}</pre>
             <div class="tool-card__bottom-actions">
               <button type="button" class="tool-card__collapse-link" title="收起输出内容" @click="toggleOutput">
-                <span>收起输出</span>
                 <el-icon class="collapse-icon"><ArrowUp /></el-icon>
               </button>
             </div>
@@ -202,25 +201,25 @@ function toggleOutput() {
 .tool-card__collapse-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   border: none;
   background: transparent;
   color: var(--ao-text-muted, #94a3b8);
-  font-size: 11px;
-  font-weight: 500;
   cursor: pointer;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-radius: 6px;
   transition: all 0.2s ease;
 }
 
 .tool-card__collapse-link:hover {
   color: var(--theme-primary, #6366f1);
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(99, 102, 241, 0.1);
+  transform: translateY(-1px);
 }
 
 .collapse-icon {
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: bold;
 }
 
 .expand-output-enter-active,

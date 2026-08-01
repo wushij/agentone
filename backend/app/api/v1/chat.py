@@ -325,7 +325,7 @@ async def chat_regenerate(
     lock_owner = f"{user.id}:{uuid.uuid4().hex[:8]}"
     sse_lock = await get_sse_lock_service()
 
-    if not await sse_lock.acquire(body.conversation_id, lock_owner):
+    if not await sse_lock.acquire(body.conversation_id, lock_owner, force=True):
         async def busy_stream():
             err = {
                 "conversationId": body.conversation_id,

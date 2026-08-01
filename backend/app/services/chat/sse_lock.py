@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from app.db.redis import get_redis
 
 _LOCK_PREFIX = "sse:active:"
-_TTL_SECONDS = 300
+_TTL_SECONDS = 60
 
 
 class SseLockService:
@@ -17,8 +17,10 @@ class SseLockService:
     def _key(self, conversation_id: str) -> str:
         return f"{_LOCK_PREFIX}{conversation_id}"
 
-    async def acquire(self, conversation_id: str, owner: str) -> bool:
+    async def acquire(self, conversation_id: str, owner: str, force: bool = False) -> bool:
         key = self._key(conversation_id)
+        if force:
+            await self.redis.delete(key)
         acquired = await self.redis.set(key, owner, nx=True, ex=_TTL_SECONDS)
         return bool(acquired)
 

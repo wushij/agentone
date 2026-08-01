@@ -38,7 +38,8 @@ AgentStatusCallback = Callable[[AgentStatusEvent], Awaitable[None] | None]
 
 async def _intent_node(state: AgentState) -> dict:
     user_input = state.get("user_input") or ""
-    intent, tool_name, tool_input = detect_intent(user_input)
+    history = state.get("history") or []
+    intent, tool_name, tool_input = detect_intent(user_input, history=history)
 
     if (state.get("metadata") or {}).get("enable_tools") is False and intent != "prompt_engineer":
         return {

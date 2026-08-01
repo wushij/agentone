@@ -170,10 +170,17 @@ def rrf_fuse(*rankings: list[int], k: int = 60) -> dict[int, float]:
     return fused
 
 
-def hybrid_blend(vec_scores: list[float], lex_scores: list[float], *, w_lex: float = 0.7) -> list[float]:
+def hybrid_blend(
+    vec_scores: list[float],
+    lex_scores: list[float],
+    *,
+    w_lex: float = 0.7,
+    texts: list[str] | None = None,
+    query: str | None = None,
+) -> list[float]:
     """分数加权混合（BM25 词法主导）：归一化后 w_lex*BM25 + (1-w_lex)*向量。
 
-    当 BM25 为 0（词法无任何匹配）时，大幅降低伪随机/噪声向量的得分权重，防止无关段落反超。
+    当包含精准文本/提问全字匹配时，自动提升匹配度至 0.98+。
     """
     n = len(lex_scores)
     if n == 0:
@@ -181,6 +188,11 @@ def hybrid_blend(vec_scores: list[float], lex_scores: list[float], *, w_lex: flo
     max_lex = max(lex_scores) if lex_scores else 0.0
     pos_vec = [max(0.0, v) for v in vec_scores] if vec_scores else [0.0] * n
     max_vec = max(pos_vec) if pos_vec else 0.0
+
+    q_clean = ""
+    if query:
+        q_clean = re.sub(r"[\s\?？!！,，.。:：;；]+", "", query.lower())
+
     blended: list[float] = []
     for i in range(n):
         nl = (lex_scores[i] / max_lex) if max_lex > 0 else 0.0
@@ -189,26 +201,73 @@ def hybrid_blend(vec_scores: list[float], lex_scores: list[float], *, w_lex: flo
             final_score = nv * 0.15
         else:
             final_score = w_lex * nl + (1 - w_lex) * nv
+
+        # 文本提问精准匹配或高置信度 BM25 全命中加成
+        if q_clean and texts and i < len(texts):
+            t_clean = re.sub(r"[\s\?？!！,，.。:：;；]+", "", texts[i].lower())
+            if q_clean in t_clean:
+                final_score = max(final_score, 0.98)
+            elif nl == 1.0 and lex_scores[i] >= 20.0:
+                final_score = max(final_score, 0.95)
+
         blended.append(round(final_score, 4))
     return blended
 
 
 async def _qdrant_retrieve(
-    kb_id: str, query: str, query_vector: list[float], top_k: int
+    kb_id: str, query: str, query_vector: list[float], top_k: int, score_threshold: float = 0.5
 ) -> list[dict] | None:
-    """Qdrant 启用时的检索（§8.1）：ANN 召回候选 → BM25 词法分 → RRF 融合 → Reranker。"""
+    """Qdrant 检索（双路召回增强）：ANN 向量召回 + 全局 BM25 词法召回 → 候选融合 → 阈值过滤 → Reranker。"""
     try:
         from app.knowledge.stores.qdrant import get_qdrant_store
 
         qs = get_qdrant_store()
     except Exception:
         qs = None
-    if qs is None:
+
+    qdrant_cands: list[dict] = []
+    if qs is not None:
+        try:
+            qdrant_cands = await qs.search(kb_id, query_vector, top_k=max(top_k * 5, 20)) or []
+        except Exception:
+            qdrant_cands = []
+
+    # 提取本地 JSON Store 中该 KB 的所有块，进行全局 BM25 补充召回，防止矢量偏离漏招精准文本匹配
+    store = load_vector_store()
+    kb_chunks = [c for c in store["chunks"] if c.get("kbId") == kb_id]
+
+    if not qdrant_cands and not kb_chunks:
         return None
-    try:
-        candidates = await qs.search(kb_id, query_vector, top_k=max(top_k * 5, 20))
-    except Exception:
-        return None
+
+    candidate_map: dict[str, dict] = {}
+    for c in qdrant_cands:
+        text_key = (c.get("text") or "").strip()
+        if text_key:
+            candidate_map[text_key] = {
+                "text": c["text"],
+                "fileId": c.get("fileId", ""),
+                "fileName": c.get("fileName", ""),
+                "vectorScore": float(c.get("score", 0.0)),
+            }
+
+    if kb_chunks:
+        all_texts = [c["text"] for c in kb_chunks]
+        bm25_all = bm25_scores(query, all_texts)
+        top_bm25_indices = sorted(range(len(bm25_all)), key=lambda i: bm25_all[i], reverse=True)[:12]
+        for idx in top_bm25_indices:
+            if bm25_all[idx] > 0:
+                chunk = kb_chunks[idx]
+                text_key = (chunk.get("text") or "").strip()
+                if text_key not in candidate_map:
+                    vec_score = cosine_similarity(query_vector, chunk.get("vector", []))
+                    candidate_map[text_key] = {
+                        "text": chunk["text"],
+                        "fileId": chunk.get("fileId", ""),
+                        "fileName": chunk.get("fileName", ""),
+                        "vectorScore": vec_score,
+                    }
+
+    candidates = list(candidate_map.values())
     if not candidates:
         return None
 
@@ -232,16 +291,17 @@ async def _qdrant_retrieve(
             db.close()
 
     texts = [c["text"] for c in candidates]
-    vec_scores = [c["score"] for c in candidates]
+    vec_scores = [c["vectorScore"] for c in candidates]
     lex_scores = bm25_scores(query, texts)
-    blended = hybrid_blend(vec_scores, lex_scores)
+    blended = hybrid_blend(vec_scores, lex_scores, texts=texts, query=query)
 
     merged: list[dict] = []
     for i, c in enumerate(candidates):
         fid = c.get("fileId", "")
+        score_val = round(blended[i], 4)
         merged.append({
             "text": c["text"],
-            "score": round(blended[i], 4),
+            "score": score_val,
             "vectorScore": round(vec_scores[i], 4),
             "bm25Score": round(lex_scores[i], 4),
             "fileName": name_map.get(fid) or c.get("fileName", ""),
@@ -250,13 +310,27 @@ async def _qdrant_retrieve(
         })
     merged.sort(key=lambda x: x["score"], reverse=True)
 
+    # 动态阈值过滤：若包含高置信度全匹配（>= 0.90），收紧相对阈值至最高分的 76%，防止仅个别泛词重合的无关块凑数
+    if merged:
+        top_score = merged[0]["score"]
+        cutoff_ratio = 0.76 if top_score >= 0.90 else 0.70
+        cutoff = max(score_threshold, top_score * cutoff_ratio)
+        merged = [r for r in merged if r["score"] >= cutoff]
+
+    if not merged:
+        return []
+
     try:
         from app.knowledge.reranker import get_reranker
-    
+
         cand = merged[: max(top_k * 3, top_k)]
         if len(cand) > 1:
-            # 修复（§4.6）：cross-encoder 的 predict 是 CPU 同步，放到线程避免阻塞事件循环
-            return await asyncio.to_thread(get_reranker().rerank, query, cand, top_k)
+            reranked = await asyncio.to_thread(get_reranker().rerank, query, cand, top_k)
+            if reranked:
+                top_r = reranked[0]["score"]
+                cutoff_r = max(score_threshold, top_r * (0.76 if top_r >= 0.90 else 0.70))
+                reranked = [r for r in reranked if r["score"] >= cutoff_r]
+            return reranked
     except Exception as exc:
         logger.warning(f"[RAG] 重排失败（已降级为融合分排序）: {exc}")
     return merged[:top_k]
@@ -356,7 +430,7 @@ class RagService:
 
         query_vector = await get_embedding(query, api_key, base_url, model)
 
-        qdrant_hits = await _qdrant_retrieve(kb_id, query, query_vector, top_k)
+        qdrant_hits = await _qdrant_retrieve(kb_id, query, query_vector, top_k, score_threshold=score_threshold)
         if qdrant_hits is not None:
             return qdrant_hits
 
@@ -385,7 +459,7 @@ class RagService:
         if mode == "hybrid":
             vec_scores = [cosine_similarity(query_vector, c["vector"]) for c in kb_chunks]
             lex_scores = bm25_scores(query, texts)
-            blended = hybrid_blend(vec_scores, lex_scores)
+            blended = hybrid_blend(vec_scores, lex_scores, texts=texts, query=query)
             for i, c in enumerate(kb_chunks):
                 norm = blended[i]
                 if norm < score_threshold or norm < 0.40:
@@ -512,6 +586,12 @@ class RagService:
                 best_by_text[text] = chunk
 
         results = sorted(best_by_text.values(), key=lambda x: x.get("score", 0), reverse=True)
+        if results:
+            top_score = results[0].get("score", 0)
+            cutoff_ratio = 0.76 if top_score >= 0.90 else 0.70
+            cutoff = max(0.50, top_score * cutoff_ratio)
+            results = [r for r in results if r.get("score", 0) >= cutoff]
+
         cap = min(max_total, max(3, len(unique_ids) * 3))
         results = results[:cap]
 

@@ -247,7 +247,12 @@ async function copyContent() {
   background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%);
   color: #fff;
   box-shadow: 0 8px 24px rgba(79, 70, 229, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
+
 
 .bubble--ai {
   width: 100%;

@@ -69,7 +69,7 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return defaultLinkOpen(tokens, idx, options, env, self)
 }
 
-const TRAILING_URL_PUNCT_RE = /[.,;:!?)]+$/ 
+const TRAILING_URL_PUNCT_RE = /[.,;:!?)]+$/
 
 /** 模型常把 URL 包在反引号里，会渲染成 code 而非链接 */
 function unwrapUrlInlineCode(content: string): string {

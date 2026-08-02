@@ -8,6 +8,76 @@
   word-break: break-word;
 }
 
+ /* User bubble markdown high-contrast overrides */
+.chat-markdown--user {
+  color: #ffffff;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.chat-markdown--user a {
+  color: #93c5fd;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-markdown--user a:hover {
+  color: #ffffff;
+}
+
+.chat-markdown--user strong {
+  color: #ffffff;
+}
+
+.chat-markdown--user h1,
+.chat-markdown--user h2,
+.chat-markdown--user h3,
+.chat-markdown--user h4 {
+  color: #ffffff;
+}
+
+.chat-markdown--user blockquote {
+  border-left-color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+}
+
+.chat-markdown--user :not(pre) > code {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.chat-markdown--user li::marker {
+  color: #ffffff;
+}
+
+.chat-markdown--user pre {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  text-align: left !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  padding: 0 !important;
+  margin: 4px 0 !important;
+  box-shadow: none !important;
+}
+
+.chat-markdown--user pre code,
+.chat-markdown--user pre code.hljs {
+  color: #ffffff !important;
+  background: transparent !important;
+  text-align: left !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  padding: 0 !important;
+}
+
+
 .chat-markdown p {
   margin: 0 0 10px;
 }
@@ -121,7 +191,7 @@
   font-size: 13px;
 }
 
-.chat-markdown :not(pre) > code {
+.chat-markdown :not(pre)>code {
   padding: 2px 6px;
   border-radius: 4px;
   background: rgba(79, 70, 229, 0.08);

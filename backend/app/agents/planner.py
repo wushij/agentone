@@ -175,34 +175,32 @@ def detect_intent(user_input: str, history: list | None = None) -> tuple[IntentT
     if has_explicit_weather or is_valid_city_followup:
         return "search", "WeatherTool", {"city": extracted_city}
 
-    if any(k in lowered for k in ("搜索", "search", "查一下", "查询资料", "网上", "百度", "google", "duckduckgo", "搜一下", "搜", "帮我查")):
+    # 3. URL 网址/网页调取意图：捕获包含 http:// 或 https:// 的网址
+    url_match = re.search(r"https?://[^\s\u4e00-\u9fa5]+", text)
+    if url_match:
+        target_url = url_match.group(0).rstrip(".,;!?()[]<>\"'")
+        return "http_request", "http_request", {"url": target_url, "method": "GET"}
+
+    # 4. 搜索与网页查阅意图
+    search_keywords = (
+        "搜索", "search", "查一下", "查询资料", "网上", "百度", "google", "duckduckgo",
+        "搜一下", "搜", "帮我查", "查阅", "访问", "打开", "看下网页", "抓取", "爬取",
+        "解析链接", "网页", "网址", "链接"
+    )
+    if any(k in lowered for k in search_keywords):
         return "search", "search", {"query": extract_search_query(text)}
+
     if any(k in lowered for k in ("文件", "读取", "上传", "file", "文档", "pdf", "excel")) or wants_file_list(text):
         return "file", "file", {"query": extract_file_query(text)}
-    if any(
-        k in lowered
-        for k in (
-            "数据库",
-            "数据库表",
-            "数据表",
-            "有哪些表",
-            "sql",
-            "select",
-            "from",
-            "查询表",
-            "有多少",
-            "多少用户",
-            "用户数",
-            "会话数",
-            "消息数",
-            "消息总数",
-            "统计",
-            "audit",
-            "tool_log",
-            "日志",
-            "注册",
-        )
-    ):
+
+    # 5. 数据库只读查询意图（精细化匹配，严格区分 Python 代码中的 from/import 与 SQL 查询）
+    is_code_snippet = bool(re.search(r"^\s*(from|import|def|class|async\s+def)\b|```|分析代码|解释代码|看下代码|检视代码", text, re.MULTILINE | re.IGNORECASE))
+    has_sql_pattern = bool(re.search(r"\bselect\s+.+\s+from\b|\bshow\s+tables\b|\bdesc\s+\w+", lowered))
+    explicit_db_keywords = (
+        "数据库", "数据库表", "数据表", "有哪些表", "sql查询", "查数据库",
+        "有多少用户", "用户数", "会话数", "消息总数"
+    )
+    if not is_code_snippet and (has_sql_pattern or any(k in lowered for k in explicit_db_keywords)):
         return "database", "database", {"query": extract_database_query(text)}
 
     return "chat", "", {}

@@ -359,6 +359,22 @@ class ConversationService:
         self.db.refresh(message)
         return _message_item(message)
 
+    def ensure_fast_initial_title(self, user_id: int, conversation_id: str, user_message: str) -> str | None:
+        """在发送首条消息的 0ms 瞬间，立刻生成基础中文标题打底，防止用户感知卡顿"""
+        conversation = self.db.get(Conversation, conversation_id)
+        if conversation is None or conversation.user_id != user_id:
+            return None
+        if conversation.title in ("新对话", "", None):
+            from app.services.conversation.conversation_title_service import fallback_conversation_title
+
+            title = fallback_conversation_title(user_message)
+            if title and title != "新对话":
+                conversation.title = title
+                conversation.updated_at = datetime.now(timezone.utc)
+                self.db.commit()
+                return title
+        return None
+
     async def maybe_autotitle_conversation(
         self,
         user_id: int,
@@ -366,11 +382,12 @@ class ConversationService:
         *,
         model_id: str | None = None,
     ) -> str | None:
-        """首轮问答完成后，用模型生成会话标题。"""
+        """当会话标题仍为默认标题时，自动提取对话主题生成会话名称"""
         conversation = self.db.get(Conversation, conversation_id)
         if conversation is None or conversation.user_id != user_id:
             return None
 
+        # 如果已有非默认标题，且不是刚才的快速提炼标题，可不再重复请求
         rows = list(
             self.db.scalars(
                 select(Message)
@@ -378,22 +395,29 @@ class ConversationService:
                 .order_by(Message.created_at.asc())
             ).all()
         )
-        if len(rows) != 2 or rows[0].role != "user" or rows[1].role != "assistant":
+        if not rows:
             return None
-        if not rows[1].content.strip():
+
+        user_msg = next((m.content for m in rows if m.role == "user"), "")
+        assistant_msg = next((m.content for m in rows if m.role == "assistant"), "")
+
+        if not user_msg.strip():
             return None
 
         from app.services.conversation.conversation_title_service import generate_conversation_title
 
         title = await generate_conversation_title(
-            rows[0].content,
-            rows[1].content,
+            user_msg,
+            assistant_msg,
             model_id=model_id,
         )
-        conversation.title = title
-        conversation.updated_at = datetime.now(timezone.utc)
-        self.db.commit()
-        return title
+        if title and title != conversation.title and title != "新对话":
+            conversation.title = title
+            conversation.updated_at = datetime.now(timezone.utc)
+            self.db.commit()
+            return title
+
+        return None
 
     def update_conversation(
         self, user_id: int, conversation_id: str, request: ConversationUpdateRequest

@@ -149,14 +149,21 @@ def detect_intent(user_input: str, history: list | None = None) -> tuple[IntentT
     # 1. 显式天气意图：包含“天气”、“气温”、“下雨”、“预报”
     has_explicit_weather = any(k in lowered for k in ("天气", "气温", "下雨", "预报"))
 
-    # 2. 地名追问意图：如“佛山的呢”、“河源的呢”、“三亚呢”、“成都怎么样”
-    # 当文本较短（<=12 字）且包含“呢/的呢/怎么样/如何”，又能剥离出 2~6 字有效地名时，100% 确定为 WeatherTool 意图
-    has_followup_suffix = any(text.endswith(s) or s in text for s in ("呢", "的呢", "怎么样", "如何"))
+    # 2. 地名追问意图：如“佛山的呢”、“河源的呢”、“三亚呢”
+    # 过滤非地名科技/通用词（如 vue3框架怎么样、React性能如何）
+    _NON_CITY_KEYWORDS = (
+        "多少", "什么", "算", "计算", "系统", "架构", "框架", "前端", "后端",
+        "代码", "程序", "算法", "部署", "项目", "技术", "软件", "应用", "库",
+        "模块", "组件", "手机", "电脑", "游戏", "模型", "大模型", "llm", "ai",
+        "api", "界面", "功能", "设计", "体验", "性能", "vue", "react", "angular",
+        "node", "java", "python", "js", "ts", "css", "html", "vite", "webpack",
+    )
+    has_followup_suffix = any(text.endswith(s) for s in ("呢", "的呢", "怎么样", "如何"))
     extracted_city = extract_weather_city(text)
     is_valid_city_followup = (
         has_followup_suffix
         and (2 <= len(extracted_city) <= 6)
-        and not any(k in text for k in ("多少", "什么", "算", "计算", "系统", "架构"))
+        and not any(k in lowered for k in _NON_CITY_KEYWORDS)
     )
 
     is_image_ctx = any(k in lowered for k in ("图片", "壁纸", "照片", "![", ".jpg", ".png", ".jpeg", ".webp", ".gif", "长发", "短发", "黑发", "金发"))
@@ -205,13 +212,34 @@ async def planner_node(state: AgentState) -> dict:
     meta = state.get("metadata") or {}
     user_input = state.get("user_input") or ""
 
-    # 快速通道（性能）：纯对话 / 提示词工程 / 工具已禁用时无需规划，
-    # 跳过 planner 的整段 LLM 往返，直接进入总结流式输出。
     tools_enabled = meta.get("enable_tools") is not False
-    intent, _tool_name, _tool_input = detect_intent(user_input)
-    if not tools_enabled or intent in ("chat", "prompt_engineer"):
-        return {"current_node": "planner", "metadata": {"plan": ""}}
+    intent, tool_name, tool_input = detect_intent(user_input)
 
+    # 1. 纯对话 / 提示词工程：无需工具规划，快速通过
+    if not tools_enabled or intent in ("chat", "prompt_engineer"):
+        return {"current_node": "planner", "metadata": {"plan": "普通对话意图，直接回答"}}
+
+    # 2. 具备明确关联工具（如 WeatherTool / Calculator / Search / File / Database）：
+    # 直接输出结构化确定性规划，消除 6.6 秒无谓的大模型往返与幻觉矛盾
+    if tool_name:
+        if tool_name == "WeatherTool":
+            city = tool_input.get("city") or "指定城市"
+            plan_desc = f"计划调用 WeatherTool 天气查询工具，实时检索「{city}」的当前气温、天气状况与降水提醒。"
+        elif tool_name == "calculator":
+            plan_desc = f"计划调用计算器工具，精确求解数学表达式: {tool_input.get('expression')}"
+        elif tool_name == "search":
+            plan_desc = f"计划调用网络搜索工具，检索资料: {tool_input.get('query')}"
+        elif tool_name == "database":
+            plan_desc = f"计划查询只读数据库，检索信息: {tool_input.get('query')}"
+        else:
+            plan_desc = f"识别到 {intent} 意图，计划调用工具 {tool_name}，参数: {tool_input}"
+
+        return {
+            "current_node": "planner",
+            "metadata": {"plan": plan_desc},
+        }
+
+    # 3. 复杂推理场景：调用大模型进行深层逻辑规划
     model_id = meta.get("model_id")
     llm = create_chat_model(model=model_id, thinking_level=str(meta.get("thinking_level") or "standard"))
 

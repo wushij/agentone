@@ -423,7 +423,11 @@ class GraphRunner:
         original_query = user_input
         resolved_kb_ids = [str(x).strip() for x in (kb_ids or []) if str(x).strip()]
 
-        metadata: dict[str, Any] = {"enable_tools": enable_tools}
+        from app.runtime.monitor.otel import get_current_trace_id, set_current_trace_id
+        trace_id = get_current_trace_id()
+        set_current_trace_id(trace_id)
+
+        metadata: dict[str, Any] = {"enable_tools": enable_tools, "trace_id": trace_id}
         if model_id:
             metadata["model_id"] = model_id
         if resolved_kb_ids:

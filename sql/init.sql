@@ -1,5 +1,6 @@
 -- ==========================================
--- AgentOne 数据库完整初始化脚本 (init.sql)
+-- AgentOne 数据库全量初始化脚本 (init.sql)
+-- 包含：基础全量表结构 + V1.1 扩展表 + 记忆表 + 成本计费表 + 长任务表
 -- ==========================================
 
 -- 1. 创建数据库
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY ix_conversations_user_id (user_id),
-  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users (id)
+  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. 消息表
@@ -158,7 +159,66 @@ CREATE TABLE IF NOT EXISTS prompt_histories (
   KEY ix_prompt_histories_prompt_name (prompt_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 13. 插入演示数据（密码 123456）
+-- 13. 三层持久化记忆表
+CREATE TABLE IF NOT EXISTS memories (
+  id               BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id          BIGINT       NOT NULL,
+  conversation_id  VARCHAR(64)  NULL,
+  scope            VARCHAR(32)  NOT NULL DEFAULT 'user' COMMENT 'session/user/global',
+  kind             VARCHAR(32)  NOT NULL DEFAULT 'fact' COMMENT 'fact/preference/episode/skill',
+  content          TEXT         NOT NULL,
+  importance       FLOAT        NOT NULL DEFAULT 1.0,
+  access_count     INT          NOT NULL DEFAULT 0,
+  last_accessed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_memories_user_scope (user_id, scope),
+  KEY ix_memories_created_at (created_at),
+  CONSTRAINT fk_memories_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 14. 成本计费明细表
+CREATE TABLE IF NOT EXISTS cost_records (
+  id                BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id           BIGINT       NOT NULL,
+  conversation_id   VARCHAR(64)  NULL,
+  model             VARCHAR(128) NOT NULL,
+  provider          VARCHAR(64)  NOT NULL,
+  agent_role        VARCHAR(64)  NOT NULL DEFAULT 'assistant',
+  tool_name         VARCHAR(128) NULL,
+  prompt_tokens     INT          NOT NULL DEFAULT 0,
+  completion_tokens INT          NOT NULL DEFAULT 0,
+  total_tokens      INT          NOT NULL DEFAULT 0,
+  cost_usd          DECIMAL(10, 6) NOT NULL DEFAULT 0.000000,
+  trace_id          VARCHAR(64)  NULL,
+  created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_cost_records_user_id (user_id),
+  KEY ix_cost_records_created_at (created_at),
+  CONSTRAINT fk_cost_records_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 15. 异步长任务表
+CREATE TABLE IF NOT EXISTS agent_tasks (
+  id                   VARCHAR(64)  NOT NULL PRIMARY KEY,
+  user_id              BIGINT       NOT NULL,
+  conversation_id      VARCHAR(64)  NULL,
+  title                VARCHAR(255) NOT NULL,
+  task_type            VARCHAR(64)  NOT NULL DEFAULT 'async_agent',
+  status               VARCHAR(32)  NOT NULL DEFAULT 'pending',
+  progress             INT          NOT NULL DEFAULT 0,
+  current_step         VARCHAR(255) NULL,
+  result               LONGTEXT     NULL,
+  error                TEXT         NULL,
+  checkpoint_thread_id VARCHAR(64)  NULL,
+  created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY ix_tasks_user_status (user_id, status),
+  KEY ix_tasks_created_at (created_at),
+  CONSTRAINT fk_agent_tasks_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 16. 插入演示初始数据（演示账号密码 123456）
 INSERT INTO users (username, password, nickname, role, status)
 VALUES
   ('super_admin', '$2b$12$oN9HnknzV6lC7AegkoJa1OxmfY1B4B4vMCksuXmV.E2SeIiF5WttG', '超级管理员', 'super_admin', 1),

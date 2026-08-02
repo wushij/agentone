@@ -60,6 +60,12 @@ const router = createRouter({
           meta: { title: 'Tool管理', permission: 'tool:manage' }
         },
         {
+          path: 'workflow-builder',
+          name: 'workflow-builder',
+          component: () => import('@/views/admin/WorkflowBuilderView.vue'),
+          meta: { title: '工作流编辑器', permission: 'config:manage' }
+        },
+        {
           path: 'prompts',
           name: 'prompts',
           component: () => import('@/views/admin/PromptsView.vue'),

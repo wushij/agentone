@@ -19,8 +19,6 @@ from pydantic import BaseModel, Field
 from app.tools.base import BaseTool, ToolResult
 
 _MAX_OUTPUT = 8000
-_TIMEOUT = 15.0
-# 基础静态拦截：本地子进程非强隔离，禁掉明显危险操作
 _FORBIDDEN = (
     "import os", "import shutil", "import socket", "subprocess",
     "__import__", "open(", "eval(", "exec(", "os.system", "rmtree",
@@ -38,6 +36,9 @@ class PythonExecutorTool(BaseTool):
     timeout_s = 20.0
 
     async def run(self, **kwargs: Any) -> ToolResult:
+        from app.runtime.tools.sandbox.docker_runner import DockerRunner
+        from app.runtime.tools.sandbox.policy import SandboxPolicy
+
         started = time.perf_counter()
         code = str(kwargs.get("code") or "").strip()
         if not code:
@@ -48,35 +49,19 @@ class PythonExecutorTool(BaseTool):
         if hit:
             return ToolResult(output="", duration_ms=0, error=f"安全限制：代码包含禁用操作「{hit}」")
 
-        tmpdir = tempfile.mkdtemp(prefix="agentone_py_")
-        script = Path(tmpdir) / "snippet.py"
-        script.write_text(code, encoding="utf-8")
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable, "-I", "-B", str(script),
-                cwd=tmpdir,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            try:
-                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=_TIMEOUT)
-            except asyncio.TimeoutError:
-                proc.kill()
-                return ToolResult(output="", duration_ms=int((time.perf_counter() - started) * 1000),
-                                  error=f"执行超时（>{_TIMEOUT}s）")
+        runner = DockerRunner()
+        policy = SandboxPolicy(timeout_s=self.timeout_s, mem_limit="512m", network_disabled=True)
+        res = await asyncio.to_thread(runner.run_code, code, policy)
 
-            out = stdout.decode("utf-8", errors="ignore")[:_MAX_OUTPUT]
-            err = stderr.decode("utf-8", errors="ignore")[:2000]
-            duration_ms = int((time.perf_counter() - started) * 1000)
-            if proc.returncode != 0:
-                return ToolResult(output=out, duration_ms=duration_ms, error=err or f"退出码 {proc.returncode}")
-            return ToolResult(
-                output=out or "(无 stdout 输出)",
-                duration_ms=duration_ms,
-                artifact={"type": "code", "title": "Python 代码", "content": code, "language": "python"},
-            )
-        except Exception as exc:
-            return ToolResult(output="", duration_ms=int((time.perf_counter() - started) * 1000), error=str(exc))
-        finally:
-            import shutil as _sh
-            _sh.rmtree(tmpdir, ignore_errors=True)
+        out = (res.get("stdout") or "")[:_MAX_OUTPUT]
+        err = res.get("error") or ""
+        duration_ms = res.get("duration_ms", int((time.perf_counter() - started) * 1000))
+
+        if err:
+            return ToolResult(output=out, duration_ms=duration_ms, error=err)
+
+        return ToolResult(
+            output=out or "(无 stdout 输出)",
+            duration_ms=duration_ms,
+            artifact={"type": "code", "title": "Python 代码", "content": code, "language": "python"},
+        )

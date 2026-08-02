@@ -178,6 +178,7 @@ async def chat_stream(
     except Exception:
         pass
     conv_service.add_message(user.id, body.conversation_id, "user", body.message)
+    fast_title = conv_service.ensure_fast_initial_title(user.id, body.conversation_id, body.message)
     kb_ids = _resolve_kb_ids(body.kb_id, body.kb_ids)
     AuditLogService(db).write(
         user_id=user.id,
@@ -193,6 +194,8 @@ async def chat_stream(
 
     async def event_generator():
         nonlocal usage_tokens, assistant_message_id
+        if fast_title:
+            yield _encode_title_event(body.conversation_id, fast_title)
         tools_executed = []
         workflow_steps = []
         try:

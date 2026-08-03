@@ -236,21 +236,37 @@ async function copyContent() {
 }
 
 .bubble {
-  padding: 14px 18px;
-  border-radius: 20px;
+  padding: 10px 16px;
+  border-radius: 18px;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.55;
   word-break: break-word;
 }
 
 .bubble--user {
   background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   text-align: left;
-  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+
+:deep(.bubble--user a),
+:deep(.bubble--user a:link),
+:deep(.bubble--user a:visited),
+.bubble--user a,
+.bubble--user a:link,
+.bubble--user a:visited {
+  color: #67e8f9 !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+:deep(.bubble--user a:hover),
+.bubble--user a:hover {
+  color: #ffffff !important;
 }
 
 

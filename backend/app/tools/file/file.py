@@ -61,12 +61,19 @@ def _pick_target(files, query: str):
 
 
 class FileArgs(BaseModel):
-    query: str = Field(default="", description="文件名关键词；留空表示列出文件清单")
+    query: str = Field(
+        default="",
+        description="文件名关键词。仅当确定用户要检索/读取已上传文件或列出文件列表时传入。"
+    )
 
 
 class FileTool(BaseTool):
     name = "file"
-    description = "读取用户已上传文件：支持列出文件清单、按文件名模糊匹配、提取文本预览"
+    description = (
+        "读取或检索用户在系统中已上传的物理文件内容（如 PDF/Word/TXT/代码等）。"
+        "【使用边界】：仅当用户明确要求【读取、打开、查看、检索已上传文件】时才调用此工具。"
+        "若用户是要求【设计、撰写、生成、编写文档/架构方案】或进行常规知识问答，严禁调用此工具！"
+    )
     args_schema = FileArgs
     timeout_s = 15.0
 

@@ -12,19 +12,37 @@
 .chat-markdown--user {
   color: #ffffff;
   text-align: left;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
 
-.chat-markdown--user a {
-  color: #93c5fd;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.chat-markdown--user p {
+  margin: 0 0 4px;
 }
 
-.chat-markdown--user a:hover {
-  color: #ffffff;
+.chat-markdown--user p:first-child {
+  margin-top: 0 !important;
+}
+
+.chat-markdown--user p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.chat-markdown--user a,
+.chat-markdown--user a:link,
+.chat-markdown--user a:visited {
+  color: #67e8f9 !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+.chat-markdown--user a:hover,
+.chat-markdown--user a:focus,
+.chat-markdown--user a:active {
+  color: #ffffff !important;
+  text-decoration: underline;
 }
 
 .chat-markdown--user strong {

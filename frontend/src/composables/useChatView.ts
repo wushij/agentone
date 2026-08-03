@@ -359,14 +359,52 @@ export function useChatViewProvider(): ChatViewContext {
     }
   }
 
+  const userScrolledUp = ref(false)
+
+  function handleWheel(e: WheelEvent) {
+    // 当用户向上滚动滚轮/触摸板 (deltaY < -2)，瞬间识别向上翻看意图，立刻解除跟随锁定
+    if (e.deltaY < -2) {
+      userScrolledUp.value = true
+    }
+  }
+
+  function handleContainerScroll() {
+    const el = messagesRef.value
+    if (!el) return
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceToBottom > 60) {
+      userScrolledUp.value = true
+    } else if (distanceToBottom < 30) {
+      userScrolledUp.value = false
+    }
+  }
+
+  watch(messagesRef, (el, oldEl) => {
+    if (oldEl) {
+      oldEl.removeEventListener('scroll', handleContainerScroll)
+      oldEl.removeEventListener('wheel', handleWheel)
+    }
+    if (el) {
+      el.addEventListener('scroll', handleContainerScroll, { passive: true })
+      el.addEventListener('wheel', handleWheel, { passive: true })
+    }
+  }, { immediate: true })
+
   async function scrollToBottom(smooth = true, force = true) {
     const el = messagesRef.value
     if (!el) return
-    // If user is already near the bottom (within 100px), keep auto-scrolling
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100
     await nextTick()
-    if (force || isAtBottom) {
-      el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const isNearBottom = distanceToBottom < 60
+
+    if (force) {
+      userScrolledUp.value = false
+    }
+
+    if (force || (!userScrolledUp.value && isNearBottom)) {
+      // 流式输出时使用 'auto' (即时底置) 防止平滑过渡动画延时积累导致追不上打字速度
+      const behavior = (smooth && !chatStore.streaming) ? 'smooth' : 'auto'
+      el.scrollTo({ top: el.scrollHeight, behavior })
     }
   }
 
@@ -521,18 +559,20 @@ export function useChatViewProvider(): ChatViewContext {
   watch(
     () => chatStore.messages[chatStore.messages.length - 1]?.content,
     () => {
-      if (chatStore.streaming) void scrollToBottom(true, false)
+      if (chatStore.streaming) void scrollToBottom(false, false)
     }
   )
 
   watch(
     () => chatStore.streaming,
     async (val) => {
-      if (!val) {
-        await scrollToBottom()
+      if (val) {
+        userScrolledUp.value = false
+      } else {
+        await scrollToBottom(true, false)
         setTimeout(() => {
-          void scrollToBottom()
-        }, 350)
+          void scrollToBottom(true, false)
+        }, 200)
       }
     }
   )

@@ -4,7 +4,8 @@
 
 ## 目录说明
 
-* **`init.sql`**：全新环境一次性初始化（建库、全部表结构、种子数据）。表结构已合并 `migrations/` 中的最终形态，无需再跑迁移。
+* **`init.sql`**：MySQL 数据库全量初始化（建库、全部表结构、种子数据）。
+* **`pg_init.sql`**：PostgreSQL 数据库全量初始化（适用于 PostgreSQL 12+）。
 * **`migrations/`**：**旧库增量升级**专用，可按版本单独执行。
 
 | 迁移文件 | 说明 |
@@ -15,9 +16,18 @@
 
 ## 初始化数据库（全新环境）
 
+### 方式 A：MySQL 格式化初始化
 ```bash
 mysql -u root -p < sql/init.sql
 ```
+
+### 方式 B：PostgreSQL 格式化初始化
+先在 PostgreSQL 中创建数据库 `agentone`，然后导入：
+```bash
+psql -U postgres -d agentone -f sql/pg_init.sql
+```
+
+> 💡 提示：后端启动时已集成 SQLAlchemy `create_all` 自动补全建表机制，启动后端同样可自动完成建表。
 
 ## 旧库增量升级
 

@@ -2,11 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "后端 dev",
+      "name": "后端 dev (PostgreSQL)",
       "type": "node-terminal",
       "request": "launch",
       "command": "uvicorn main:app --reload --host 0.0.0.0 --port 8000",
-      "cwd": "${workspaceFolder}/backend"
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "DATABASE_URL": "postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/agentone"
+      }
+    },
+    {
+      "name": "后端 dev (MySQL)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "DATABASE_URL": "mysql+pymysql://root:root@127.0.0.1:3306/agentone?charset=utf8mb4"
+      }
     },
     {
       "name": "前端 dev",
@@ -18,9 +31,16 @@
   ],
   "compounds": [
     {
-      "name": "全栈 dev",
+      "name": "全栈 dev (PostgreSQL)",
       "configurations": [
-        "后端 dev",
+        "后端 dev (PostgreSQL)",
+        "前端 dev"
+      ]
+    },
+    {
+      "name": "全栈 dev (MySQL)",
+      "configurations": [
+        "后端 dev (MySQL)",
         "前端 dev"
       ]
     }

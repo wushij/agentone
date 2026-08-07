@@ -50,8 +50,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
-    from app.db.session import SessionLocal
+    from app.db.session import SessionLocal, engine
+    from app.models.base import Base
     from app.db.seed import seed_all
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.warning(f"Auto table creation check skipped or failed: {e}")
     db = SessionLocal()
     try:
         seed_all(db)
